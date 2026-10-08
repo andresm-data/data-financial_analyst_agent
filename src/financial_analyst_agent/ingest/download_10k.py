@@ -87,12 +87,15 @@ def filings_to_frame(data: dict) -> pd.DataFrame:
 
     Args:
         data (dict): Diccionario con las listas paralelas `form`,
-            `accessionNumber`, `primaryDocument` y `filingDate`.
+            `accessionNumber`, `primaryDocument`, `filingDate` y
+            `reportDate`.
 
     Returns:
-        pd.DataFrame: Una fila por informe con esas cuatro columnas.
+        pd.DataFrame: Una fila por informe con esas cinco columnas.
     """
-    columns = ['form', 'accessionNumber', 'primaryDocument', 'filingDate']
+    columns = [
+        'form', 'accessionNumber', 'primaryDocument', 'filingDate', 'reportDate'
+    ]
 
     return pd.DataFrame({
         col: data[col] for col in columns
@@ -115,7 +118,8 @@ def fetch_recent_filings(session: requests.Session, cik: str) -> pd.DataFrame:
 
     Returns:
         pd.DataFrame: Una fila por informe con las columnas `form`,
-            `accessionNumber`, `primaryDocument` y `filingDate`, armadas
+            `accessionNumber`, `primaryDocument`, `filingDate` y
+            `reportDate`, armadas
             a partir de las listas paralelas de `filings.recent` y de las
             páginas adicionales consultadas.
     """
@@ -158,7 +162,10 @@ def latest_10k(filings: pd.DataFrame, bank: dict) -> pd.DataFrame:
     Returns:
         pd.DataFrame: Hasta 3 filas con `form == "10-K"`, ordenadas de la más
             reciente a la más antigua por `filingDate`, con las columnas
-            `ticker`, `name` y `cik` agregadas al inicio.
+            `ticker`, `name`, `cik` y `fiscal_year` agregadas al inicio.
+            `fiscal_year` es el año de `reportDate` (cierre del periodo
+            informado), no el de `filingDate`: el 10-K del año fiscal 2025
+            se presenta en 2026.
     """
     selected = (
         filings[filings['form'] == FORM_TYPE]
@@ -170,6 +177,9 @@ def latest_10k(filings: pd.DataFrame, bank: dict) -> pd.DataFrame:
     selected.insert(0, 'ticker', bank['ticker'])
     selected.insert(1, 'name', bank['name'])
     selected.insert(2, 'cik', bank['cik'])
+    selected.insert(
+        3, 'fiscal_year', pd.to_datetime(selected['reportDate']).dt.year
+    )
 
     return selected
 

@@ -41,7 +41,15 @@ SUBMISSIONS = {
                 "2023-02-21",
                 "2022-02-22",
             ],
-            "reportDate": ["x"] * 7,
+            "reportDate": [
+                "2025-09-30",
+                "2024-12-31",
+                "2025-01-15",
+                "2023-12-31",
+                "2023-12-31",
+                "2022-12-31",
+                "2021-12-31",
+            ],
         }
     }
 }
@@ -130,7 +138,9 @@ def test_fetch_recent_filings_usa_cik_de_10_digitos_y_alinea_listas():
     filings = d.fetch_recent_filings(session, "19617")
 
     assert session.calls == ["https://data.sec.gov/submissions/CIK0000019617.json"]
-    assert list(filings.columns) == ["form", "accessionNumber", "primaryDocument", "filingDate"]
+    assert list(filings.columns) == [
+        "form", "accessionNumber", "primaryDocument", "filingDate", "reportDate",
+    ]
     assert len(filings) == 7
     row = filings.iloc[1]
     assert (row.form, row.accessionNumber, row.primaryDocument, row.filingDate) == (
@@ -155,8 +165,18 @@ def test_latest_10k_filtra_y_toma_los_3_mas_recientes():
 
     assert list(selected["form"]) == ["10-K"] * 3
     assert list(selected["filingDate"]) == ["2025-02-14", "2024-02-16", "2023-02-21"]
-    assert list(selected.columns[:3]) == ["ticker", "name", "cik"]
+    assert list(selected.columns[:4]) == ["ticker", "name", "cik", "fiscal_year"]
     assert set(selected["ticker"]) == {"JPM"}
+
+
+def test_latest_10k_toma_el_anio_fiscal_de_report_date():
+    """fiscal_year sale del año de reportDate, no del año en que se presentó el informe."""
+    filings = d.fetch_recent_filings(FakeSession(), BANK["cik"])
+
+    selected = d.latest_10k(filings, BANK)
+
+    assert list(selected["filingDate"].str[:4]) == ["2025", "2024", "2023"]
+    assert list(selected["fiscal_year"]) == [2024, 2023, 2022]
 
 
 def test_latest_10k_ordena_aunque_la_respuesta_venga_desordenada():
@@ -167,6 +187,7 @@ def test_latest_10k_ordena_aunque_la_respuesta_venga_desordenada():
             "accessionNumber": ["a", "b", "c", "d"],
             "primaryDocument": ["a.htm", "b.htm", "c.htm", "d.htm"],
             "filingDate": ["2021-02-01", "2024-02-01", "2022-02-01", "2023-02-01"],
+            "reportDate": ["2020-12-31", "2023-12-31", "2021-12-31", "2022-12-31"],
         }
     )
 
@@ -241,9 +262,10 @@ def test_main_genera_csv_y_descarga_documentos(tmp_dirs, monkeypatch, no_sleep):
     table = pd.read_csv(processed / "filings.csv", dtype=str)
     assert len(table) == 6
     assert list(table.columns) == [
-        "ticker", "name", "cik", "form", "accessionNumber",
-        "primaryDocument", "filingDate", "url",
+        "ticker", "name", "cik", "fiscal_year", "form", "accessionNumber",
+        "primaryDocument", "filingDate", "reportDate", "url",
     ]
+    assert list(table["fiscal_year"].iloc[:3]) == ["2024", "2023", "2022"]
     assert table.groupby("ticker").size().to_dict() == {"BAC": 3, "JPM": 3}
     assert (table["form"] == "10-K").all()
     assert table["cik"].iloc[0] == "0000019617"
@@ -330,6 +352,7 @@ def _page(forms, year):
         "accessionNumber": [f"acc-{year}-{i}" for i in range(n)],
         "primaryDocument": [f"doc-{year}-{i}.htm" for i in range(n)],
         "filingDate": [f"{year}-{12 - i:02d}-01" for i in range(n)],
+        "reportDate": [f"{year - 1}-12-31"] * n,
     }
 
 

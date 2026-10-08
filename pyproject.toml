@@ -9,7 +9,10 @@ readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
 requires-python = ">=3.14,<4.0.0"
-dependencies = ["langchain-chroma (>=1.1.0,<2.0.0)"]
+dependencies = ["langchain-chroma (>=1.1.0,<2.0.0)", "pandas (>=3.0.6,<4.0.0)", "requests (>=2.34.2,<3.0.0)", "pyyaml (>=6.0.3,<7.0.0)", "python-dotenv (>=1.2.4,<2.0.0)"]
+
+[project.scripts]
+download_10k = "financial_analyst_agent.ingest.download_10k:main"
 
 [tool.poetry]
 packages = [{ include = "financial_analyst_agent", from = "src" }]
@@ -19,9 +22,7 @@ requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
 
 [dependency-groups]
-dev = [
-    "pytest (>=9.1.1,<10.0.0)"
-]
+dev = ["pytest (>=9.1.1,<10.0.0)"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]

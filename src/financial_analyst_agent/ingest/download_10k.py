@@ -24,6 +24,7 @@ PROCESSED_DIR = PROJECT_ROOT / 'data' / 'processed'
 RAW_10K_DIR = PROJECT_ROOT / 'data' / 'raw' / '10k'
 
 SUBMISSIONS_URL = 'https://data.sec.gov/submissions/CIK{cik}.json'
+SUBMISSIONS_PAGE_URL = 'https://data.sec.gov/submissions/{name}'
 ARCHIVE_URL = 'https://www.sec.gov/Archives/edgar/data/{cik}/{accession}/{document}'
 
 FORM_TYPE = '10-K'
@@ -81,8 +82,31 @@ def build_session() -> requests.Session:
 
 
 # =============================================================================
+def filings_to_frame(data: dict) -> pd.DataFrame:
+    """Convierte las listas paralelas de informes de la SEC en un DataFrame.
+
+    Args:
+        data (dict): Diccionario con las listas paralelas `form`,
+            `accessionNumber`, `primaryDocument` y `filingDate`.
+
+    Returns:
+        pd.DataFrame: Una fila por informe con esas cuatro columnas.
+    """
+    columns = ['form', 'accessionNumber', 'primaryDocument', 'filingDate']
+
+    return pd.DataFrame({
+        col: data[col] for col in columns
+    })
+
+
+# =============================================================================
 def fetch_recent_filings(session: requests.Session, cik: str) -> pd.DataFrame:
-    """Obtiene la lista de informes recientes de un banco desde la API de la SEC.
+    """Obtiene la lista de informes de un banco desde la API de la SEC.
+
+    En bancos con muchas presentaciones, `filings.recent` solo cubre el
+    último año. Si ahí hay menos de 3 informes 10-K, recorre las páginas de
+    `filings.files` (de la más nueva a la más vieja) hasta completarlos o
+    hasta que no queden páginas.
 
     Args:
         session (requests.Session): Sesión con el User-Agent que exige la SEC.
@@ -92,18 +116,34 @@ def fetch_recent_filings(session: requests.Session, cik: str) -> pd.DataFrame:
     Returns:
         pd.DataFrame: Una fila por informe con las columnas `form`,
             `accessionNumber`, `primaryDocument` y `filingDate`, armadas
-            a partir de las listas paralelas de `filings.recent`.
+            a partir de las listas paralelas de `filings.recent` y de las
+            páginas adicionales consultadas.
     """
     url = SUBMISSIONS_URL.format(cik=cik.zfill(10))
     response = session.get(url, timeout=30)
     response.raise_for_status()
 
-    recent = response.json()['filings']['recent']
-    columns = ['form', 'accessionNumber', 'primaryDocument', 'filingDate']
+    filings = response.json()['filings']
+    frames = [filings_to_frame(filings['recent'])]
+    found = (frames[0]['form'] == FORM_TYPE).sum()
 
-    return pd.DataFrame({
-        col: recent[col] for col in columns
-    })
+    for page in filings.get('files', []):
+        if found >= FILINGS_PER_BANK:
+            break
+
+        time.sleep(REQUEST_DELAY)
+        logger.info('Consultando página adicional %s', page['name'])
+
+        response = session.get(
+            SUBMISSIONS_PAGE_URL.format(name=page['name']), timeout=30
+        )
+        response.raise_for_status()
+
+        frame = filings_to_frame(response.json())
+        frames.append(frame)
+        found += (frame['form'] == FORM_TYPE).sum()
+
+    return pd.concat(frames, ignore_index=True)
 
 
 # =============================================================================

@@ -320,3 +320,93 @@ def test_run_configura_logs_en_info_y_ejecuta_main(monkeypatch):
 
     assert [name for name, _ in calls] == ["config", "main"]
     assert calls[0][1]["level"] == logging.INFO
+
+
+def _page(forms, year):
+    """Arma listas paralelas de informes con fechas descendentes dentro de un año."""
+    n = len(forms)
+    return {
+        "form": forms,
+        "accessionNumber": [f"acc-{year}-{i}" for i in range(n)],
+        "primaryDocument": [f"doc-{year}-{i}.htm" for i in range(n)],
+        "filingDate": [f"{year}-{12 - i:02d}-01" for i in range(n)],
+    }
+
+
+class RoutedSession:
+    """Responde con el JSON asignado a cada URL y registra las URLs pedidas."""
+
+    def __init__(self, routes):
+        self.routes = routes
+        self.calls = []
+
+    def get(self, url, timeout=None):
+        self.calls.append(url)
+        return FakeResponse(json_data=self.routes[url])
+
+
+MAIN_URL = "https://data.sec.gov/submissions/CIK0000019617.json"
+PAGE_URL = "https://data.sec.gov/submissions/{}"
+PAGES = ["CIK0000019617-submissions-001.json", "CIK0000019617-submissions-002.json",
+         "CIK0000019617-submissions-003.json"]
+
+
+def _paged_routes(recent, pages):
+    routes = {
+        MAIN_URL: {
+            "filings": {"recent": recent, "files": [{"name": name} for name in PAGES[: len(pages)]]}
+        }
+    }
+    routes.update({PAGE_URL.format(name): page for name, page in zip(PAGES, pages)})
+    return routes
+
+
+def test_fetch_recent_filings_recorre_paginas_hasta_completar_3_10k(no_sleep):
+    """Si recent tiene menos de 3 10-K, pide páginas de filings.files hasta completarlos y se detiene."""
+    routes = _paged_routes(
+        _page(["424B2", "10-K", "8-K"], 2026),
+        [_page(["424B2", "10-K"], 2025), _page(["10-K", "10-Q"], 2024), _page(["10-K"], 2023)],
+    )
+    session = RoutedSession(routes)
+
+    filings = d.fetch_recent_filings(session, "19617")
+
+    assert session.calls == [MAIN_URL, PAGE_URL.format(PAGES[0]), PAGE_URL.format(PAGES[1])]
+    assert (filings["form"] == "10-K").sum() == 3
+    assert len(filings) == 7
+    assert no_sleep == [0.3, 0.3]
+
+    selected = d.latest_10k(filings, BANK)
+    assert list(selected["filingDate"]) == ["2026-11-01", "2025-11-01", "2024-12-01"]
+
+
+def test_fetch_recent_filings_no_pide_paginas_si_recent_alcanza(no_sleep):
+    """Si recent ya tiene 3 10-K, no consulta las páginas adicionales."""
+    routes = _paged_routes(_page(["10-K", "10-K", "10-K"], 2026), [_page(["10-K"], 2025)])
+    session = RoutedSession(routes)
+
+    d.fetch_recent_filings(session, "19617")
+
+    assert session.calls == [MAIN_URL]
+    assert no_sleep == []
+
+
+def test_fetch_recent_filings_devuelve_lo_que_haya_si_se_acaban_las_paginas(no_sleep):
+    """Si las páginas se acaban sin llegar a 3 10-K, devuelve los que encontró."""
+    routes = _paged_routes(_page(["8-K"], 2026), [_page(["10-K"], 2025)])
+    session = RoutedSession(routes)
+
+    filings = d.fetch_recent_filings(session, "19617")
+
+    assert len(session.calls) == 2
+    assert (filings["form"] == "10-K").sum() == 1
+
+
+def test_fetch_recent_filings_registra_las_paginas_adicionales(no_sleep, caplog):
+    """Registra en INFO el nombre de cada página adicional consultada."""
+    routes = _paged_routes(_page(["8-K"], 2026), [_page(["10-K"], 2025)])
+
+    with caplog.at_level(logging.INFO, logger=d.logger.name):
+        d.fetch_recent_filings(RoutedSession(routes), "19617")
+
+    assert caplog.messages == [f"Consultando página adicional {PAGES[0]}"]

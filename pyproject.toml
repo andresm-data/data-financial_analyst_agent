@@ -9,7 +9,10 @@ readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
 requires-python = ">=3.14,<4.0.0"
-dependencies = ["langchain-chroma (>=1.1.0,<2.0.0)"]
+dependencies = ["langchain-chroma (>=1.1.0,<2.0.0)", "pandas (>=3.0.6,<4.0.0)", "requests (>=2.34.2,<3.0.0)", "pyyaml (>=6.0.3,<7.0.0)", "python-dotenv (>=1.2.4,<2.0.0)"]
+
+[project.scripts]
+download_10k = "financial_analyst_agent.ingest.download_10k:run"
 
 [tool.poetry]
 packages = [{ include = "financial_analyst_agent", from = "src" }]
@@ -19,6 +22,16 @@ requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
 
 [dependency-groups]
-dev = [
-    "pytest (>=9.1.1,<10.0.0)"
-]
+dev = ["pytest (>=9.1.1,<10.0.0)", "pytest-cov (>=7.1.0,<8.0.0)"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+addopts = "--cov --cov-report=term-missing"
+
+[tool.coverage.run]
+source = ["src/financial_analyst_agent"]
+branch = true
+
+[tool.coverage.report]
+skip_empty = true
+exclude_also = ['if __name__ == .__main__.:']

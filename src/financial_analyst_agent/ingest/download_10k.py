@@ -18,6 +18,7 @@ COMPANIES_FILE = PACKAGE_DIR / 'config' / 'companies.yaml'
 ENV_FILE = PACKAGE_DIR / '.env'
 
 SUBMISSIONS_URL = 'https://data.sec.gov/submissions/CIK{cik}.json'
+ARCHIVE_URL = 'https://www.sec.gov/Archives/edgar/data/{cik}/{accession}/{document}'
 
 FORM_TYPE = '10-K'
 FILINGS_PER_BANK = 3
@@ -124,3 +125,25 @@ def latest_10k(filings: pd.DataFrame, bank: dict) -> pd.DataFrame:
     selected.insert(2, 'cik', bank['cik'])
 
     return selected
+
+
+# =============================================================================
+def build_document_url(
+    cik: str, accession_number: str, primary_document: str
+) -> str:
+    """Construye la URL de descarga de un informe en el archivo EDGAR de la SEC.
+
+    Args:
+        cik (str): CIK del banco; se le quitan los ceros a la izquierda.
+        accession_number (str): Número de registro del informe con guiones.
+        primary_document (str): Nombre del documento principal del informe.
+
+    Returns:
+        str: URL con la forma
+            `https://www.sec.gov/Archives/edgar/data/{cik}/{accession}/{document}`.
+    """
+    return ARCHIVE_URL.format(
+        cik=int(cik),
+        accession=accession_number.replace('-', ''),
+        document=primary_document
+    )

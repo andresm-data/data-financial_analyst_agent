@@ -1,4 +1,5 @@
 """Descarga los 3 informes 10-K más recientes de cada banco desde SEC EDGAR."""
+import logging
 import os
 import sys
 import time
@@ -9,6 +10,8 @@ import pandas as pd
 import requests
 import yaml
 from dotenv import load_dotenv
+
+logger = logging.getLogger(__name__)
 
 
 # =============================================================================
@@ -173,14 +176,14 @@ def download_filings(session: requests.Session, filings: pd.DataFrame) -> None:
         target = RAW_10K_DIR / f'{r.ticker}_{r.filingDate}_{r.primaryDocument}'
 
         if target.exists():
-            print(f'  ya existe {target.name}, se omite')
+            logger.info('Ya existe %s, se omite', target.name)
             continue
 
         response = session.get(r.url, timeout=60)
         response.raise_for_status()
 
         target.write_bytes(response.content)
-        print(f'  descargado {target.name}')
+        logger.info('Descargado %s', target.name)
 
         time.sleep(REQUEST_DELAY)
 
@@ -200,7 +203,7 @@ def main() -> None:
     selected = []
 
     for bank in banks:
-        print(f'Consultando {bank["ticker"]} (CIK {bank["cik"]})')
+        logger.info('Consultando %s (CIK %s)', bank['ticker'], bank['cik'])
 
         filings = fetch_recent_filings(session, bank['cik'])
         selected.append(latest_10k(filings, bank))
@@ -218,12 +221,16 @@ def main() -> None:
 
     table.to_csv(csv_path, index=False)
 
-    print(f'Tabla guardada en {csv_path} ({len(table)} filas)')
-    print("Descargando documentos")
+    logger.info('Tabla guardada en %s (%d filas)', csv_path, len(table))
+    logger.info('Descargando documentos')
 
     download_filings(session, table)
 
 
 # =============================================================================
 if __name__ == "__main__":
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s %(levelname)s %(name)s: %(message)s',
+    )
     main()

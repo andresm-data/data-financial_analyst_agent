@@ -1,5 +1,7 @@
 """Pruebas de download_10k sin llamadas reales a la SEC (la red se reemplaza por dobles)."""
 
+import logging
+
 import pandas as pd
 import pytest
 import requests
@@ -260,3 +262,61 @@ def test_load_banks_lee_companies_yaml():
 
     assert len(banks) == 6
     assert all(len(bank["cik"]) == 10 for bank in banks)
+
+
+def test_logger_usa_el_nombre_del_modulo():
+    """El logger del módulo se llama como el módulo, para filtrarlo desde fuera."""
+    assert d.logger.name == "financial_analyst_agent.ingest.download_10k"
+
+
+def test_download_filings_registra_descargas_y_omitidos(tmp_dirs, caplog):
+    """Registra en INFO cada archivo descargado y cada archivo que ya existía."""
+    _, raw = tmp_dirs
+    raw.mkdir(parents=True)
+    (raw / "JPM_2025-02-14_nuevo.htm").touch()
+    table = pd.DataFrame(
+        {
+            "ticker": ["JPM", "JPM"],
+            "filingDate": ["2025-02-14", "2024-02-16"],
+            "primaryDocument": ["nuevo.htm", "viejo.htm"],
+            "url": ["https://www.sec.gov/a", "https://www.sec.gov/b"],
+        }
+    )
+
+    with caplog.at_level(logging.INFO, logger=d.logger.name):
+        d.download_filings(FakeSession(), table)
+
+    assert caplog.messages == [
+        "Ya existe JPM_2025-02-14_nuevo.htm, se omite",
+        "Descargado JPM_2024-02-16_viejo.htm",
+    ]
+    assert all(r.levelno == logging.INFO for r in caplog.records)
+
+
+def test_main_registra_el_progreso(tmp_dirs, monkeypatch, caplog):
+    """main registra cada banco consultado, dónde guarda el CSV y el inicio de las descargas."""
+    processed, _ = tmp_dirs
+    monkeypatch.setattr(d, "build_session", lambda: FakeSession())
+    monkeypatch.setattr(d, "load_banks", lambda: [BANK])
+
+    with caplog.at_level(logging.INFO, logger=d.logger.name):
+        d.main()
+
+    assert caplog.messages[:3] == [
+        "Consultando JPM (CIK 0000019617)",
+        f"Tabla guardada en {processed / 'filings.csv'} (3 filas)",
+        "Descargando documentos",
+    ]
+    assert len(caplog.messages) == 6  # 3 mensajes de progreso + 3 descargas
+
+
+def test_run_configura_logs_en_info_y_ejecuta_main(monkeypatch):
+    """run configura logging en nivel INFO antes de llamar a main."""
+    calls = []
+    monkeypatch.setattr(d.logging, "basicConfig", lambda **kw: calls.append(("config", kw)))
+    monkeypatch.setattr(d, "main", lambda: calls.append(("main", None)))
+
+    d.run()
+
+    assert [name for name, _ in calls] == ["config", "main"]
+    assert calls[0][1]["level"] == logging.INFO

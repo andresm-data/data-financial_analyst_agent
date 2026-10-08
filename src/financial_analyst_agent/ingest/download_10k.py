@@ -17,6 +17,7 @@ PROJECT_ROOT = PACKAGE_DIR.parents[1]
 
 COMPANIES_FILE = PACKAGE_DIR / 'config' / 'companies.yaml'
 ENV_FILE = PACKAGE_DIR / '.env'
+PROCESSED_DIR = PROJECT_ROOT / 'data' / 'processed'
 RAW_10K_DIR = PROJECT_ROOT / 'data' / 'raw' / '10k'
 
 SUBMISSIONS_URL = 'https://data.sec.gov/submissions/CIK{cik}.json'
@@ -182,3 +183,47 @@ def download_filings(session: requests.Session, filings: pd.DataFrame) -> None:
         print(f'  descargado {target.name}')
 
         time.sleep(REQUEST_DELAY)
+
+
+# =============================================================================
+def main() -> None:
+    """Ejecuta el flujo completo de descarga de los 10-K de cada banco.
+
+    1. Consulta la lista de informes de cada banco de config/companies.yaml.
+    2. Se queda con los 3 informes 10-K más recientes por banco, les agrega
+       la URL de descarga y guarda la tabla en data/processed/filings.csv.
+    3. Descarga cada documento a data/raw/10k/.
+    """
+    session = build_session()
+    banks = load_banks()
+
+    selected = []
+
+    for bank in banks:
+        print(f'Consultando {bank["ticker"]} (CIK {bank["cik"]})')
+
+        filings = fetch_recent_filings(session, bank['cik'])
+        selected.append(latest_10k(filings, bank))
+
+        time.sleep(REQUEST_DELAY)
+
+    table = pd.concat(selected, ignore_index=True)
+    table['url'] = [
+        build_document_url(r.cik, r.accessionNumber, r.primaryDocument)
+        for r in table.itertuples(index=False)
+    ]
+
+    PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
+    csv_path = PROCESSED_DIR / 'filings.csv'
+
+    table.to_csv(csv_path, index=False)
+
+    print(f'Tabla guardada en {csv_path} ({len(table)} filas)')
+    print("Descargando documentos")
+
+    download_filings(session, table)
+
+
+# =============================================================================
+if __name__ == "__main__":
+    main()

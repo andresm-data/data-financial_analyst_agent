@@ -1,6 +1,7 @@
 """Descarga los 3 informes 10-K más recientes de cada banco desde SEC EDGAR."""
 import os
 import sys
+import time
 import unicodedata
 from pathlib import Path
 
@@ -16,12 +17,14 @@ PROJECT_ROOT = PACKAGE_DIR.parents[1]
 
 COMPANIES_FILE = PACKAGE_DIR / 'config' / 'companies.yaml'
 ENV_FILE = PACKAGE_DIR / '.env'
+RAW_10K_DIR = PROJECT_ROOT / 'data' / 'raw' / '10k'
 
 SUBMISSIONS_URL = 'https://data.sec.gov/submissions/CIK{cik}.json'
 ARCHIVE_URL = 'https://www.sec.gov/Archives/edgar/data/{cik}/{accession}/{document}'
 
 FORM_TYPE = '10-K'
 FILINGS_PER_BANK = 3
+REQUEST_DELAY = 0.3
 
 
 # =============================================================================
@@ -147,3 +150,35 @@ def build_document_url(
         accession=accession_number.replace('-', ''),
         document=primary_document
     )
+
+
+# =============================================================================
+def download_filings(session: requests.Session, filings: pd.DataFrame) -> None:
+    """Descarga los documentos de los informes y los guarda en data/raw/10k/.
+
+    Cada archivo se guarda como `{ticker}_{filingDate}_{primaryDocument}`. Si
+    ya existe se omite, y entre descargas se esperan 0,3 segundos para
+    respetar el límite de peticiones de la SEC.
+
+    Args:
+        session (requests.Session): Sesión con el User-Agent que exige la SEC.
+        filings (pd.DataFrame): Informes a descargar con las columnas
+            `ticker`, `filingDate`, `primaryDocument` y `url`.
+    """
+    RAW_10K_DIR.mkdir(parents=True, exist_ok=True)
+
+    for r in filings.itertuples(index=False):
+        # Prefijo con ticker y fecha para evitar colisiones
+        target = RAW_10K_DIR / f'{r.ticker}_{r.filingDate}_{r.primaryDocument}'
+
+        if target.exists():
+            print(f'  ya existe {target.name}, se omite')
+            continue
+
+        response = session.get(r.url, timeout=60)
+        response.raise_for_status()
+
+        target.write_bytes(response.content)
+        print(f'  descargado {target.name}')
+
+        time.sleep(REQUEST_DELAY)

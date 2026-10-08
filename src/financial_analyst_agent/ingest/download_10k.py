@@ -4,6 +4,7 @@ import sys
 import unicodedata
 from pathlib import Path
 
+import pandas as pd
 import requests
 import yaml
 from dotenv import load_dotenv
@@ -15,6 +16,8 @@ PROJECT_ROOT = PACKAGE_DIR.parents[1]
 
 COMPANIES_FILE = PACKAGE_DIR / 'config' / 'companies.yaml'
 ENV_FILE = PACKAGE_DIR / '.env'
+
+SUBMISSIONS_URL = 'https://data.sec.gov/submissions/CIK{cik}.json'
 
 
 # =============================================================================
@@ -64,3 +67,29 @@ def build_session() -> requests.Session:
     })
 
     return session
+
+
+# =============================================================================
+def fetch_recent_filings(session: requests.Session, cik: str) -> pd.DataFrame:
+    """Obtiene la lista de informes recientes de un banco desde la API de la SEC.
+
+    Args:
+        session (requests.Session): Sesión con el User-Agent que exige la SEC.
+        cik (str): CIK del banco; si tiene menos de 10 dígitos se completa
+            con ceros a la izquierda.
+
+    Returns:
+        pd.DataFrame: Una fila por informe con las columnas `form`,
+            `accessionNumber`, `primaryDocument` y `filingDate`, armadas
+            a partir de las listas paralelas de `filings.recent`.
+    """
+    url = SUBMISSIONS_URL.format(cik=cik.zfill(10))
+    response = session.get(url, timeout=30)
+    response.raise_for_status()
+
+    recent = response.json()['filings']['recent']
+    columns = ['form', 'accessionNumber', 'primaryDocument', 'filingDate']
+
+    return pd.DataFrame({
+        col: recent[col] for col in columns
+    })

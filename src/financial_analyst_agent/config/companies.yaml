@@ -1,0 +1,30 @@
+banks:
+  - ticker: JPM
+    name: JPMorgan Chase
+    info: Banco más grande de EE.UU.
+    cik: "0000019617"
+
+  - ticker: BAC
+    name: Bank of America
+    info: Banca de consumo y empresas
+    cik: "0000070858"
+
+  - ticker: C
+    name: Citigroup
+    info: Con mucha presencia internacional
+    cik: "0000831001"
+
+  - ticker: GS
+    name: Goldman Sachs
+    info: Banca de inversión
+    cik: "0000886982"
+
+  - ticker: MS
+    name: Morgan Stanley
+    info: Inversión y gestión del patrimonio
+    cik: "0000895421"
+
+  - ticker: TFC
+    name: Truist Financial Corp
+    info: Banco regional
+    cik: "0000092230"

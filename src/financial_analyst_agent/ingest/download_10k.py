@@ -19,6 +19,9 @@ ENV_FILE = PACKAGE_DIR / '.env'
 
 SUBMISSIONS_URL = 'https://data.sec.gov/submissions/CIK{cik}.json'
 
+FORM_TYPE = '10-K'
+FILINGS_PER_BANK = 3
+
 
 # =============================================================================
 def load_banks() -> list[dict]:
@@ -93,3 +96,31 @@ def fetch_recent_filings(session: requests.Session, cik: str) -> pd.DataFrame:
     return pd.DataFrame({
         col: recent[col] for col in columns
     })
+
+
+# =============================================================================
+def latest_10k(filings: pd.DataFrame, bank: dict) -> pd.DataFrame:
+    """Selecciona los 3 informes 10-K más recientes de un banco.
+
+    Args:
+        filings (pd.DataFrame): Informes del banco tal como los devuelve
+            `fetch_recent_filings`.
+        bank (dict): Datos del banco con las claves `ticker`, `name` y `cik`.
+
+    Returns:
+        pd.DataFrame: Hasta 3 filas con `form == "10-K"`, ordenadas de la más
+            reciente a la más antigua por `filingDate`, con las columnas
+            `ticker`, `name` y `cik` agregadas al inicio.
+    """
+    selected = (
+        filings[filings['form'] == FORM_TYPE]
+        .sort_values('filingDate', ascending=False)
+        .head(FILINGS_PER_BANK)
+        .copy()
+    )
+
+    selected.insert(0, 'ticker', bank['ticker'])
+    selected.insert(1, 'name', bank['name'])
+    selected.insert(2, 'cik', bank['cik'])
+
+    return selected

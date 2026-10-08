@@ -12,7 +12,7 @@ requires-python = ">=3.14,<4.0.0"
 dependencies = ["langchain-chroma (>=1.1.0,<2.0.0)", "pandas (>=3.0.6,<4.0.0)", "requests (>=2.34.2,<3.0.0)", "pyyaml (>=6.0.3,<7.0.0)", "python-dotenv (>=1.2.4,<2.0.0)"]
 
 [project.scripts]
-download_10k = "financial_analyst_agent.ingest.download_10k:main"
+download_10k = "financial_analyst_agent.ingest.download_10k:run"
 
 [tool.poetry]
 packages = [{ include = "financial_analyst_agent", from = "src" }]

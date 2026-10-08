@@ -228,9 +228,16 @@ def main() -> None:
 
 
 # =============================================================================
-if __name__ == "__main__":
+def run() -> None:
+    """Configura los logs y ejecuta main; es el punto de entrada del comando."""
     logging.basicConfig(
         level=logging.INFO,
         format='%(asctime)s %(levelname)s %(name)s: %(message)s',
     )
+
     main()
+
+
+# =============================================================================
+if __name__ == "__main__":
+    run()

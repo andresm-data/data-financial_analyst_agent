@@ -222,3 +222,8 @@ __marimo__/
 # Data
 *.html
 *.htm
+
+# SEC company facts (JSON descargados) y base DuckDB
+data/raw/facts/*.json
+*.duckdb
+*.duckdb.wal

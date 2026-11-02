@@ -7,6 +7,7 @@ import logging
 import time
 from pathlib import Path
 
+import duckdb
 import pandas as pd
 import requests
 
@@ -58,6 +59,25 @@ COLUMNS = [
     'company', 'metric', 'fiscal_year', 'value', 'unit', 'period_end',
     'filed_date',
 ]
+
+DB_PATH = PROJECT_ROOT / 'data' / 'processed' / 'finance.duckdb'
+
+CREATE_TABLE_SQL = """
+CREATE TABLE IF NOT EXISTS financials (
+    company     VARCHAR NOT NULL,
+    metric      VARCHAR NOT NULL,
+    fiscal_year INTEGER NOT NULL,
+    value       DOUBLE  NOT NULL,
+    unit        VARCHAR NOT NULL,
+    period_end  DATE    NOT NULL,
+    filed_date  DATE    NOT NULL,
+    PRIMARY KEY (company, metric, fiscal_year)
+)
+"""
+
+VERIFY_SQL = (
+    'SELECT company, count(*) FROM financials GROUP BY company ORDER BY company'
+)
 
 
 # =============================================================================
@@ -264,8 +284,56 @@ def extract_financials(facts: dict, company: str) -> pd.DataFrame:
 
 
 # =============================================================================
+def load_to_duckdb(table: pd.DataFrame, db_path: Path = DB_PATH) -> None:
+    """Carga las cifras en la tabla `financials` de DuckDB.
+
+    La carga es repetible: en una sola transacción borra las filas de las
+    empresas que vienen en `table` y vuelve a insertarlas. La clave primaria
+    (company, metric, fiscal_year) impide duplicados.
+
+    Args:
+        table (pd.DataFrame): Filas con las columnas de `COLUMNS`.
+        db_path (Path): Ruta del archivo .duckdb.
+    """
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+
+    with duckdb.connect(str(db_path)) as con:
+        con.execute(CREATE_TABLE_SQL)
+        con.register('new_rows', table[COLUMNS])
+
+        con.execute('BEGIN TRANSACTION')
+        try:
+            con.execute(
+                'DELETE FROM financials '
+                'WHERE company IN (SELECT DISTINCT company FROM new_rows)'
+            )
+            con.execute(
+                f'INSERT INTO financials ({", ".join(COLUMNS)}) '
+                f'SELECT {", ".join(COLUMNS)} FROM new_rows'
+            )
+            con.execute('COMMIT')
+        except Exception:
+            con.execute('ROLLBACK')
+            raise
+
+    logger.info('Cargadas %d filas en %s', len(table), db_path)
+
+
+# =============================================================================
+def verify(db_path: Path = DB_PATH) -> pd.DataFrame:
+    """Cuenta las filas por empresa en la tabla `financials`."""
+    with duckdb.connect(str(db_path), read_only=True) as con:
+        return con.execute(VERIFY_SQL).df()
+
+
+# =============================================================================
 def main() -> None:
-    """Descarga los company facts y extrae las métricas de cada banco."""
+    """Ejecuta el flujo completo.
+
+    1. Descarga los company facts de cada banco de config/companies.yaml.
+    2. Extrae las 6 métricas anuales.
+    3. Las carga en data/processed/finance.duckdb y muestra el conteo.
+    """
     session = build_session()
     frames = []
 
@@ -275,7 +343,9 @@ def main() -> None:
         frames.append(extract_financials(facts, bank['ticker']))
 
     table = pd.concat(frames, ignore_index=True)
-    logger.info('Extraídas %d filas', len(table))
+    load_to_duckdb(table)
+
+    print(verify().to_string(index=False))
 
 
 # =============================================================================

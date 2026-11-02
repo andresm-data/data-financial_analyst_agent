@@ -86,3 +86,20 @@ def test_extract_financials_columns_and_company():
     assert list(df.columns) == lf.COLUMNS
     assert set(df['metric']) == {'Assets', 'NetIncomeLoss'}
     assert (df['company'] == 'TFC').all()
+
+
+def test_load_to_duckdb_is_repeatable(tmp_path):
+    facts = facts_with({
+        'Assets': [
+            fact(100, '2024-12-31', '2025-02-01'),
+            fact(90, '2023-12-31', '2025-02-01'),
+        ],
+    })
+    table = lf.extract_financials(facts, 'JPM')
+    db_path = tmp_path / 'finance.duckdb'
+
+    lf.load_to_duckdb(table, db_path)
+    lf.load_to_duckdb(table, db_path)
+
+    counts = lf.verify(db_path)
+    assert counts.iloc[:, 1].tolist() == [2]

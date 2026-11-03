@@ -223,7 +223,8 @@ __marimo__/
 *.html
 *.htm
 
-# SEC company facts (JSON descargados) y base DuckDB
-data/raw/facts/*.json
+# Datos generados por `make data` (descargas SEC, DuckDB, manifiesto, Chroma).
+# Todo se reconstruye desde cero; no se versiona nada dentro de data/.
+/data/
 *.duckdb
 *.duckdb.wal

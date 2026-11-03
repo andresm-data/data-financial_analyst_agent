@@ -87,6 +87,12 @@ def facts_path(ticker: str) -> Path:
 
 
 # =============================================================================
+def company_facts_url(cik: str) -> str:
+    """URL de company facts de un banco; el CIK se completa a 10 dígitos."""
+    return COMPANY_FACTS_URL.format(cik=str(cik).zfill(10))
+
+
+# =============================================================================
 def download_company_facts(
     session: requests.Session, bank: dict
 ) -> Path:
@@ -105,8 +111,7 @@ def download_company_facts(
         logger.info('Ya existe %s, se omite', target.name)
         return target
 
-    url = COMPANY_FACTS_URL.format(cik=str(bank['cik']).zfill(10))
-    response = session.get(url, timeout=60)
+    response = session.get(company_facts_url(bank['cik']), timeout=60)
     response.raise_for_status()
 
     RAW_FACTS_DIR.mkdir(parents=True, exist_ok=True)

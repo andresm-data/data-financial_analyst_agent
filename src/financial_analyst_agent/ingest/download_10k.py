@@ -207,6 +207,15 @@ def build_document_url(
 
 
 # =============================================================================
+def filing_path(ticker: str, filing_date: str, primary_document: str) -> Path:
+    """Ruta local de un 10-K: `{ticker}_{filingDate}_{primaryDocument}`.
+
+    El prefijo con ticker y fecha evita colisiones entre bancos y años.
+    """
+    return RAW_10K_DIR / f'{ticker}_{filing_date}_{primary_document}'
+
+
+# =============================================================================
 def download_filings(session: requests.Session, filings: pd.DataFrame) -> None:
     """Descarga los documentos de los informes y los guarda en data/raw/10k/.
 
@@ -222,8 +231,7 @@ def download_filings(session: requests.Session, filings: pd.DataFrame) -> None:
     RAW_10K_DIR.mkdir(parents=True, exist_ok=True)
 
     for r in filings.itertuples(index=False):
-        # Prefijo con ticker y fecha para evitar colisiones
-        target = RAW_10K_DIR / f'{r.ticker}_{r.filingDate}_{r.primaryDocument}'
+        target = filing_path(r.ticker, r.filingDate, r.primaryDocument)
 
         if target.exists():
             logger.info('Ya existe %s, se omite', target.name)

@@ -5,10 +5,15 @@ Orden:
    (data/raw/10k/).
 2. load_financials: company facts (data/raw/facts/) y tabla `financials`
    en data/processed/finance.duckdb.
+3. manifest: data/processed/manifest.csv con URL y fecha de cada descarga.
 """
 import logging
 
-from financial_analyst_agent.ingest import download_10k, load_financials
+from financial_analyst_agent.ingest import (
+    download_10k,
+    load_financials,
+    manifest,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +22,7 @@ logger = logging.getLogger(__name__)
 STEPS = [
     ('download_10k', download_10k.main),
     ('load_financials', load_financials.main),
+    ('manifest', manifest.write_manifest),
 ]
 
 

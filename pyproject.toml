@@ -14,6 +14,7 @@ dependencies = ["langchain-chroma (>=1.1.0,<2.0.0)", "pandas (>=3.0.6,<4.0.0)", 
 [project.scripts]
 download_10k = "financial_analyst_agent.ingest.download_10k:run"
 load_financials = "financial_analyst_agent.ingest.load_financials:run"
+run_all = "financial_analyst_agent.ingest.run_all:run"
 
 [tool.poetry]
 packages = [{ include = "financial_analyst_agent", from = "src" }]

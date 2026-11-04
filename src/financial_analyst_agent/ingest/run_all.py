@@ -4,9 +4,10 @@ Orden:
 1. download_10k: lista de 10-K (data/processed/filings.csv) y documentos
    (data/raw/10k/).
 2. html_to_text: un .txt limpio por 10-K en data/processed/text/.
-3. load_financials: company facts (data/raw/facts/) y tabla `financials`
+3. sections: Risk Factors y MD&A con su JSON en data/processed/sections/.
+4. load_financials: company facts (data/raw/facts/) y tabla `financials`
    en data/processed/finance.duckdb.
-4. manifest: data/processed/manifest.csv con URL y fecha de cada descarga.
+5. manifest: data/processed/manifest.csv con URL y fecha de cada descarga.
 """
 import logging
 
@@ -15,6 +16,7 @@ from financial_analyst_agent.ingest import (
     html_to_text,
     load_financials,
     manifest,
+    sections,
 )
 
 logger = logging.getLogger(__name__)
@@ -24,6 +26,7 @@ logger = logging.getLogger(__name__)
 STEPS = [
     ('download_10k', download_10k.main),
     ('html_to_text', html_to_text.main),
+    ('sections', sections.main),
     ('load_financials', load_financials.main),
     ('manifest', manifest.write_manifest),
 ]

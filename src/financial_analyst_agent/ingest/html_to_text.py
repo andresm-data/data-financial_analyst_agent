@@ -1,9 +1,10 @@
 """Convierte los 10-K HTML de data/raw/10k/ a texto limpio en data/processed/text/."""
 import logging
 import re
+import warnings
 from pathlib import Path
 
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, XMLParsedAsHTMLWarning
 
 from financial_analyst_agent.ingest.download_10k import PROJECT_ROOT, RAW_10K_DIR
 
@@ -39,7 +40,11 @@ def html_to_text(html: str | bytes) -> str:
         str: Texto con espacios normalizados, sin líneas vacías y terminado
             en salto de línea.
     """
-    soup = BeautifulSoup(html, 'lxml')
+    # Los 10-K son XHTML (XBRL en línea). Se leen con el parser HTML a
+    # propósito: tolera marcado imperfecto y entidades HTML como &nbsp;.
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore', XMLParsedAsHTMLWarning)
+        soup = BeautifulSoup(html, 'lxml')
 
     for tag in soup.find_all(DROP_TAGS):
         tag.decompose()

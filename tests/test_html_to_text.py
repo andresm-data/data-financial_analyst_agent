@@ -1,5 +1,6 @@
 """Pruebas de la conversión de 10-K HTML a texto (sin red)."""
 import os
+import warnings
 
 import pytest
 
@@ -24,6 +25,14 @@ def test_html_to_text_keeps_inline_spans_together_and_splits_blocks():
     )
 
     assert ht.html_to_text(html) == 'Management’s Discussion\nNet income $ 10\n'
+
+
+def test_html_to_text_parses_xhtml_without_warnings():
+    xhtml = "<?xml version='1.0' encoding='ASCII'?><html><body><p>Hi</p></body></html>"
+
+    with warnings.catch_warnings():
+        warnings.simplefilter('error')
+        assert ht.html_to_text(xhtml) == 'Hi\n'
 
 
 def test_convert_file_writes_txt_and_skips_if_up_to_date(tmp_path, monkeypatch):

@@ -9,7 +9,7 @@ readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
 requires-python = ">=3.14,<4.0.0"
-dependencies = ["langchain-chroma (>=1.1.0,<2.0.0)", "pandas (>=3.0.6,<4.0.0)", "requests (>=2.34.2,<3.0.0)", "pyyaml (>=6.0.3,<7.0.0)", "python-dotenv (>=1.2.4,<2.0.0)", "duckdb (>=2.0.0,<3.0.0)", "beautifulsoup4 (>=4.15.0,<5.0.0)", "lxml (>=6.1.3,<7.0.0)", "langchain-ollama (>=1.1.0,<2.0.0)"]
+dependencies = ["langchain-chroma (>=1.1.0,<2.0.0)", "pandas (>=3.0.6,<4.0.0)", "requests (>=2.34.2,<3.0.0)", "pyyaml (>=6.0.3,<7.0.0)", "python-dotenv (>=1.2.4,<2.0.0)", "duckdb (>=2.0.0,<3.0.0)", "beautifulsoup4 (>=4.15.0,<5.0.0)", "lxml (>=6.1.3,<7.0.0)", "langchain-ollama (>=1.1.0,<2.0.0)", "torch (>=2.15.0,<3.0.0)", "langchain-huggingface (>=1.2.3,<2.0.0)", "sentence-transformers (>=6.2.0,<7.0.0)"]
 
 [project.scripts]
 download_10k = "financial_analyst_agent.ingest.download_10k:run"
@@ -20,6 +20,14 @@ run_all = "financial_analyst_agent.ingest.run_all:run"
 
 [tool.poetry]
 packages = [{ include = "financial_analyst_agent", from = "src" }]
+
+[[tool.poetry.source]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+priority = "explicit"
+
+[tool.poetry.dependencies]
+torch = {source = "pytorch-cpu"}
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]

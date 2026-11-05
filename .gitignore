@@ -228,3 +228,15 @@ __marimo__/
 /data/
 *.duckdb
 *.duckdb.wal
+
+# Cachés de modelos (Hugging Face, sentence-transformers, Ollama) por si se
+# redirigen dentro del repo con HF_HOME u OLLAMA_MODELS.
+.cache/
+.huggingface/
+hf_cache/
+.ollama/
+models/
+*.safetensors
+*.gguf
+*.bin
+*.pt

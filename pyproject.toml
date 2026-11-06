@@ -19,6 +19,7 @@ sections = "financial_analyst_agent.ingest.sections:run"
 run_all = "financial_analyst_agent.ingest.run_all:run"
 chunks = "financial_analyst_agent.rag.chunking:run"
 chunk_report = "financial_analyst_agent.rag.report:main"
+table_eval = "financial_analyst_agent.rag.table_eval:main"
 
 [tool.poetry]
 packages = [{ include = "financial_analyst_agent", from = "src" }]

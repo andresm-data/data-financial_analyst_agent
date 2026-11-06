@@ -1,0 +1,4 @@
+# Parámetros del RAG. Cambiar estos valores cambia el resultado sin tocar código.
+chunking:
+  chunk_size: 1000     # caracteres máximos por chunk
+  chunk_overlap: 150   # caracteres que se repiten entre chunks seguidos

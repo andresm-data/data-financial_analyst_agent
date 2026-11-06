@@ -50,3 +50,32 @@ def test_clean_section_text_removes_page_furniture():
     assert cl.clean_section_text(text, COMPANY, TITLE) == '\n'.join([
         PROSE, 'Off-Balance Sheet Arrangement Disclosure in Form 10-K', 'Table 38', PROSE,
     ]) + '\n'
+
+
+def test_rejoin_paragraph_split_by_page_break():
+    first = 'Federal funds purchased and securities loaned or sold under'
+    first += ' the agreements'
+    lines = [first, 'to repurchase increased $88.3 billion.', 'Next paragraph.']
+
+    assert cl.rejoin_paragraphs(lines) == [
+        f'{first} to repurchase increased $88.3 billion.', 'Next paragraph.',
+    ]
+
+
+def test_rejoin_keeps_sentences_headers_and_table_rows_apart():
+    lines = [
+        PROSE, 'which is a new sentence fragment.',          # anterior termina en punto
+        'Average', 'loans(1)',                               # encabezado de columnas
+        'Long label for the row of a table that is long 1,234', 'and more 5',  # filas
+    ]
+
+    assert cl.rejoin_paragraphs(lines) == lines
+
+
+def test_clean_section_text_joins_across_removed_footer():
+    first = 'Average loans grew because commercial clients drew on their credit'
+    text = '\n'.join([first, 'Bank of America 30', 'lines during the year.'])
+
+    assert cl.clean_section_text(text, COMPANY, TITLE) == (
+        f'{first} lines during the year.\n'
+    )

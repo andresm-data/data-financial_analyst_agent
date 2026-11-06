@@ -25,9 +25,9 @@ import re
 from dataclasses import dataclass
 
 # =============================================================================
-# Una celda numérica: 1,234  (56)  $  3.25  %  —  n/a  NM  (1) ...
+# Una celda numérica: 1,234  (56)  $  3.25  %  14.5x  —  n/a  NM  (1) ...
 NUMBER_CELL = re.compile(
-    r'[($]*-?\$?[\d,]*\.?\d+\)?%?\)?|[—–-]+|\$|%|\)|bps|n/?[am]|NM|x',
+    r'[($]*-?\$?[\d,]*\.?\d+\)?[%x]?\)?|[—–-]+|\$|%|\)|bps|n/?[am]|NM|x',
     re.IGNORECASE,
 )
 

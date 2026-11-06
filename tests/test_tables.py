@@ -17,6 +17,7 @@ TABLE = [
 def test_is_row_and_is_label():
     assert tb.is_row('Noninterest income 45,827 41,650')
     assert tb.is_row('Provisions (165) (549)')
+    assert tb.is_row('Leverage ratio 14.5x 13.7x')
     assert not tb.is_row('Net income was $27.1 billion in 2024.')
     assert tb.is_label('Per common share information')
     assert not tb.is_label(PROSE)

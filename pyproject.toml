@@ -17,6 +17,7 @@ html_to_text = "financial_analyst_agent.ingest.html_to_text:run"
 load_financials = "financial_analyst_agent.ingest.load_financials:run"
 sections = "financial_analyst_agent.ingest.sections:run"
 run_all = "financial_analyst_agent.ingest.run_all:run"
+chunks = "financial_analyst_agent.rag.chunking:run"
 
 [tool.poetry]
 packages = [{ include = "financial_analyst_agent", from = "src" }]

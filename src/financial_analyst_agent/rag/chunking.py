@@ -23,6 +23,7 @@ from financial_analyst_agent.ingest.download_10k import (
     PROJECT_ROOT,
 )
 from financial_analyst_agent.ingest.sections import SECTIONS_DIR
+from financial_analyst_agent.rag.tables import Block, split_blocks, table_header
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +31,13 @@ logger = logging.getLogger(__name__)
 RAG_CONFIG_FILE = PACKAGE_DIR / 'config' / 'rag.yaml'
 CHUNKS_DIR = PROCESSED_DIR / 'chunks'
 CHUNKS_FILE = CHUNKS_DIR / 'chunks.jsonl'
+
+# Separa los bloques de texto y tablas; el divisor corta aquí primero y lo
+# conserva al inicio de cada parte, así que cuenta para el tamaño.
+BLOCK_SEPARATOR = '\n\n'
+
+# Marca que se añade al título de una tabla repetido en sus continuaciones.
+CONTINUED = ' (continued)'
 
 # Metadatos de la sección que se copian a cada chunk.
 CHUNK_METADATA_KEYS = [
@@ -75,8 +83,37 @@ def make_splitter(config: ChunkingConfig) -> RecursiveCharacterTextSplitter:
 
 
 # =============================================================================
+def split_table(block: Block, config: ChunkingConfig) -> list[str]:
+    """Parte una tabla en trozos de como máximo `chunk_size` caracteres.
+
+    Cada trozo después del primero empieza con el título y el encabezado de
+    columnas de la tabla (marcado con "(continued)"), para que ningún chunk
+    empiece con filas sueltas sin contexto.
+    """
+    max_chars = config.chunk_size - len(BLOCK_SEPARATOR)
+
+    if len(block.text) <= max_chars:
+        return [block.text]
+
+    header = table_header(block, max_chars=config.chunk_size // 3)
+    header[0] += CONTINUED
+    header_text = '\n'.join(header)
+    budget = max_chars - len(header_text) - 1
+    pieces = make_splitter(
+        ChunkingConfig(budget, min(config.chunk_overlap, budget // 2))
+    ).split_text(block.text)
+
+    return [pieces[0]] + [f'{header_text}\n{piece}' for piece in pieces[1:]]
+
+
+# =============================================================================
 def chunk_text(text: str, config: ChunkingConfig | None = None) -> list[str]:
-    """Divide un texto en chunks según la configuración.
+    """Divide un texto en chunks según la configuración, sin partir tablas.
+
+    Las tablas se separan del texto corrido con una línea en blanco, que es
+    el primer separador del divisor: así un chunk empieza al inicio de una
+    tabla y no a mitad. Las tablas más largas que `chunk_size` se parten
+    antes con `split_table`, repitiendo su encabezado.
 
     Args:
         text (str): Texto a dividir.
@@ -87,8 +124,15 @@ def chunk_text(text: str, config: ChunkingConfig | None = None) -> list[str]:
         list[str]: Chunks de como máximo `chunk_size` caracteres.
     """
     config = config or load_chunking_config()
+    parts = []
 
-    return make_splitter(config).split_text(text)
+    for block in split_blocks(text):
+        if block.is_table:
+            parts.extend(split_table(block, config))
+        else:
+            parts.append(block.text)
+
+    return make_splitter(config).split_text(BLOCK_SEPARATOR.join(parts))
 
 
 # =============================================================================

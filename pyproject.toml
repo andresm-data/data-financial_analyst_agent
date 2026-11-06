@@ -18,6 +18,7 @@ load_financials = "financial_analyst_agent.ingest.load_financials:run"
 sections = "financial_analyst_agent.ingest.sections:run"
 run_all = "financial_analyst_agent.ingest.run_all:run"
 chunks = "financial_analyst_agent.rag.chunking:run"
+chunk_report = "financial_analyst_agent.rag.report:main"
 
 [tool.poetry]
 packages = [{ include = "financial_analyst_agent", from = "src" }]

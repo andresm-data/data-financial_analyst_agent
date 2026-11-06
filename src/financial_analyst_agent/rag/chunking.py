@@ -136,6 +136,17 @@ def chunk_text(text: str, config: ChunkingConfig | None = None) -> list[str]:
 
 
 # =============================================================================
+def section_text(section: dict, root: Path = PROJECT_ROOT) -> str:
+    """Texto de una sección tal como se divide en chunks.
+
+    Args:
+        section (dict): Metadatos de la sección (su JSON).
+        root (Path): Raíz contra la que se resuelve `section_file`.
+    """
+    return (root / section['section_file']).read_text(encoding='utf-8')
+
+
+# =============================================================================
 def chunk_section(
     metadata_file: Path, config: ChunkingConfig, root: Path = PROJECT_ROOT
 ) -> list[Document]:
@@ -152,7 +163,7 @@ def chunk_section(
             `section_file`, `chunk_index` y `chunk_id`.
     """
     section = json.loads(metadata_file.read_text(encoding='utf-8'))
-    text = (root / section['section_file']).read_text(encoding='utf-8')
+    text = section_text(section, root)
     base = {key: section[key] for key in CHUNK_METADATA_KEYS}
     stem = f"{section['ticker']}_{section['fiscal_year']}_{section['section']}"
 

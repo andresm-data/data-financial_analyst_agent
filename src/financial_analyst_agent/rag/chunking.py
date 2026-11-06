@@ -23,6 +23,7 @@ from financial_analyst_agent.ingest.download_10k import (
     PROJECT_ROOT,
 )
 from financial_analyst_agent.ingest.sections import SECTIONS_DIR
+from financial_analyst_agent.rag.cleaning import clean_section_text
 from financial_analyst_agent.rag.tables import Block, split_blocks, table_header
 
 logger = logging.getLogger(__name__)
@@ -137,13 +138,17 @@ def chunk_text(text: str, config: ChunkingConfig | None = None) -> list[str]:
 
 # =============================================================================
 def section_text(section: dict, root: Path = PROJECT_ROOT) -> str:
-    """Texto de una sección tal como se divide en chunks.
+    """Texto de una sección tal como se divide en chunks: sin pies de página.
 
     Args:
         section (dict): Metadatos de la sección (su JSON).
         root (Path): Raíz contra la que se resuelve `section_file`.
     """
-    return (root / section['section_file']).read_text(encoding='utf-8')
+    return clean_section_text(
+        (root / section['section_file']).read_text(encoding='utf-8'),
+        company=section['company'],
+        section_title=section['section_title'],
+    )
 
 
 # =============================================================================

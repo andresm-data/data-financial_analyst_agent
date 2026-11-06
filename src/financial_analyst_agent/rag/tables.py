@@ -14,12 +14,10 @@ Una tabla es una racha de líneas donde hay al menos `MIN_TABLE_ROWS` filas
 cortas que no son frases, como "Per common share information"). Antes de la
 primera fila se suman hasta `MAX_TITLE_LINES` etiquetas como título.
 
-Los pies de página ("74", "Bank of America 32", "JPMorgan Chase & Co./2024
-Form 10-K") se saltan: no cortan una tabla, pero tampoco pueden empezarla ni
-formar parte de su encabezado.
+El texto debe llegar sin pies ni títulos de página (ver `cleaning`), que si no
+se cuelan como título de la tabla.
 """
 import re
-from collections import Counter
 from dataclasses import dataclass
 
 # =============================================================================
@@ -35,14 +33,6 @@ MIN_TABLE_ROWS = 2
 MAX_TITLE_LINES = 3
 
 SENTENCE_END = ('.', '?', '!')
-
-# Pie de página: número de página suelto o referencia al formulario.
-PAGE_MARKER = re.compile(r'\d{1,3}|.{0,60}\bForm 10-K', re.IGNORECASE)
-# Pie con el nombre del banco y el número de página a un lado.
-PAGE_NUMBER_EDGE = re.compile(r'\d{1,3} \D+|\D+ \d{1,3}')
-MAX_PAGE_MARKER_WORDS = 6
-# Veces que debe repetirse (con distinto número) para contar como pie.
-MIN_PAGE_MARKER_REPEATS = 5
 
 
 # =============================================================================
@@ -65,23 +55,6 @@ def is_label(line: str) -> bool:
 
 
 # =============================================================================
-def page_markers(lines: list[str]) -> set[int]:
-    """Índices de las líneas que son pies de página."""
-    pattern = [re.sub(r'\d', '#', line) for line in lines]
-    repeats = Counter(pattern)
-
-    return {
-        i for i, line in enumerate(lines)
-        if PAGE_MARKER.fullmatch(line)
-        or (
-            PAGE_NUMBER_EDGE.fullmatch(line)
-            and len(line.split()) <= MAX_PAGE_MARKER_WORDS
-            and repeats[pattern[i]] >= MIN_PAGE_MARKER_REPEATS
-        )
-    }
-
-
-# =============================================================================
 @dataclass(frozen=True)
 class Block:
     """Tramo de líneas consecutivas: texto corrido o una tabla."""
@@ -97,9 +70,8 @@ class Block:
 # =============================================================================
 def table_ranges(lines: list[str]) -> list[tuple[int, int]]:
     """Rangos (inicio incluido, fin excluido) de las tablas del texto."""
-    markers = page_markers(lines)
-    row = [i not in markers and is_row(line) for i, line in enumerate(lines)]
-    label = [i not in markers and is_label(line) for i, line in enumerate(lines)]
+    row = [is_row(line) for line in lines]
+    label = [is_label(line) for line in lines]
     ranges = []
     i = 0
 
@@ -108,11 +80,11 @@ def table_ranges(lines: list[str]) -> list[tuple[int, int]]:
             i += 1
             continue
 
-        # Avanza por filas, etiquetas y pies de página; termina en la última fila.
+        # Avanza por filas y etiquetas; la tabla termina en la última fila.
         end = i
         rows = 0
         j = i
-        while j < len(lines) and (row[j] or label[j] or j in markers):
+        while j < len(lines) and (row[j] or label[j]):
             if row[j]:
                 rows += 1
                 end = j + 1
@@ -156,10 +128,8 @@ def table_header(block: Block, max_chars: int) -> list[str]:
     Si no caben en `max_chars`, se quitan líneas del final; si ni la primera
     cabe, se recorta.
     """
-    markers = page_markers(block.lines)
-    lines = [line for i, line in enumerate(block.lines) if i not in markers]
-    first_row = next(i for i, line in enumerate(lines) if is_row(line))
-    header = lines[:first_row + 1]
+    first_row = next(i for i, line in enumerate(block.lines) if is_row(line))
+    header = block.lines[:first_row + 1]
 
     while len(header) > 1 and len('\n'.join(header)) > max_chars:
         header.pop()

@@ -28,19 +28,6 @@ def test_table_includes_title_and_stops_before_prose():
     assert tb.table_ranges(lines) == [(1, 7)]
 
 
-def test_page_footer_does_not_start_table_or_header():
-    footer = [f'Bank of America {n}' for n in range(30, 35)]
-    lines = [PROSE, footer[0], *TABLE[2:], PROSE, *footer[1:]]
-
-    assert tb.table_ranges(lines) == [(2, 6)]
-
-
-def test_page_footer_inside_table_does_not_split_it():
-    lines = [PROSE, *TABLE[:4], '74', *TABLE[4:], PROSE]
-
-    assert tb.table_ranges(lines) == [(1, 8)]
-
-
 def test_no_chunk_starts_in_the_middle_of_a_table():
     rows = [f'Loan category {i} $ {i},000 $ {i},500' for i in range(80)]
     text = '\n'.join([PROSE] * 5 + TABLE[:2] + rows + [PROSE] * 5)

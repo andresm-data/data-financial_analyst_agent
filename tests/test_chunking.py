@@ -18,7 +18,22 @@ def write_config(tmp_path, size, overlap):
 
 
 def test_repo_config_starts_with_1000_and_150():
-    assert ch.load_chunking_config() == ch.ChunkingConfig(1000, 150)
+    assert ch.load_chunking_config() == ch.ChunkingConfig(
+        1000, 150, ('\n\n', '\n', '. ', '; ', ' ', '')
+    )
+
+
+def test_long_paragraph_is_cut_at_sentence_boundaries():
+    paragraph = ' '.join(f'Sentence {i} explains how credit risk changed.' for i in range(60))
+    chunks = ch.chunk_text(paragraph, ch.ChunkingConfig(300, 50))
+
+    assert len(chunks) > 1
+    assert all(c.startswith('Sentence') and c.endswith('.') for c in chunks)
+
+
+def test_separators_must_start_with_block_separator():
+    with pytest.raises(ValueError):
+        ch.ChunkingConfig(1000, 150, ('\n', ' '))
 
 
 def test_chunks_respect_size_from_config(tmp_path):

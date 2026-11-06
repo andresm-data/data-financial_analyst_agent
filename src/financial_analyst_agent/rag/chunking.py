@@ -34,8 +34,12 @@ CHUNKS_DIR = PROCESSED_DIR / 'chunks'
 CHUNKS_FILE = CHUNKS_DIR / 'chunks.jsonl'
 
 # Separa los bloques de texto y tablas; el divisor corta aquí primero y lo
-# conserva al inicio de cada parte, así que cuenta para el tamaño.
+# conserva en una de las partes, así que cuenta para el tamaño.
 BLOCK_SEPARATOR = '\n\n'
+
+# Orden en que el divisor busca dónde cortar: bloques, líneas, frases,
+# cláusulas, palabras y, en último caso, caracteres.
+DEFAULT_SEPARATORS = (BLOCK_SEPARATOR, '\n', '. ', '; ', ' ', '')
 
 # Marca que se añade al título de una tabla repetido en sus continuaciones.
 CONTINUED = ' (continued)'
@@ -54,12 +58,17 @@ class ChunkingConfig:
 
     chunk_size: int
     chunk_overlap: int
+    separators: tuple[str, ...] = DEFAULT_SEPARATORS
 
     def __post_init__(self) -> None:
         if self.chunk_size <= 0:
             raise ValueError('chunk_size debe ser mayor que 0')
         if not 0 <= self.chunk_overlap < self.chunk_size:
             raise ValueError('chunk_overlap debe estar entre 0 y chunk_size')
+        # Las tablas se separan con BLOCK_SEPARATOR; si no es el primer
+        # separador, el divisor podría cortarlas por la mitad.
+        if not self.separators or self.separators[0] != BLOCK_SEPARATOR:
+            raise ValueError(f'separators debe empezar por {BLOCK_SEPARATOR!r}')
 
 
 # =============================================================================
@@ -71,15 +80,22 @@ def load_chunking_config(path: Path = RAG_CONFIG_FILE) -> ChunkingConfig:
     return ChunkingConfig(
         chunk_size=int(chunking['chunk_size']),
         chunk_overlap=int(chunking['chunk_overlap']),
+        separators=tuple(chunking.get('separators', DEFAULT_SEPARATORS)),
     )
 
 
 # =============================================================================
 def make_splitter(config: ChunkingConfig) -> RecursiveCharacterTextSplitter:
-    """Divisor que corta primero por párrafos, luego líneas, luego palabras."""
+    """Divisor que prueba los separadores de la config en orden.
+
+    El separador se queda al final del trozo (`keep_separator='end'`): así un
+    chunk termina en ". " y el siguiente empieza con la frase nueva.
+    """
     return RecursiveCharacterTextSplitter(
         chunk_size=config.chunk_size,
         chunk_overlap=config.chunk_overlap,
+        separators=list(config.separators),
+        keep_separator='end',
     )
 
 
@@ -101,7 +117,9 @@ def split_table(block: Block, config: ChunkingConfig) -> list[str]:
     header_text = '\n'.join(header)
     budget = max_chars - len(header_text) - 1
     pieces = make_splitter(
-        ChunkingConfig(budget, min(config.chunk_overlap, budget // 2))
+        ChunkingConfig(
+            budget, min(config.chunk_overlap, budget // 2), config.separators
+        )
     ).split_text(block.text)
 
     return [pieces[0]] + [f'{header_text}\n{piece}' for piece in pieces[1:]]

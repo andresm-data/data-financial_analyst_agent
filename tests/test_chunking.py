@@ -19,7 +19,7 @@ def write_config(tmp_path, size, overlap):
 
 def test_repo_config_starts_with_1000_and_150():
     assert ch.load_chunking_config() == ch.ChunkingConfig(
-        1000, 150, ('\n\n', '\n', '. ', '; ', ' ', '')
+        1000, 150, ('\n\n', '\n', '. ', '; ', ' ', ''), min_chunk_chars=200
     )
 
 
@@ -55,6 +55,38 @@ def test_overlap_repeats_text_between_chunks():
     chunks = ch.chunk_text(TEXT, ch.ChunkingConfig(300, 100))
 
     assert chunks[1].splitlines()[0] in chunks[0].splitlines()
+
+
+def test_join_chunks_drops_repeated_overlap():
+    assert ch.join_chunks('Rates rose. Credit held.', 'Credit held. Deposits fell.') == (
+        'Rates rose. Credit held. Deposits fell.'
+    )
+    assert ch.join_chunks('Rates rose.', 'Deposits fell.') == 'Rates rose.\nDeposits fell.'
+
+
+def test_merge_small_chunks_into_next_then_previous():
+    config = ch.ChunkingConfig(50, 0, min_chunk_chars=10)
+    chunks = ['Short.', 'A sentence of twenty.', 'x' * 45, 'Tail.']
+
+    assert ch.merge_small_chunks(chunks, config) == [
+        'Short.\nA sentence of twenty.', 'x' * 45, 'Tail.',
+    ]
+
+
+def test_merge_small_chunks_never_exceeds_chunk_size():
+    config = ch.ChunkingConfig(20, 0, min_chunk_chars=10)
+    chunks = ['y' * 18, 'tiny', 'z' * 18]
+
+    assert ch.merge_small_chunks(chunks, config) == chunks
+
+
+def test_min_chunk_chars_from_config_reduces_short_chunks(tmp_path):
+    text = '\n\n'.join(['Heading'] + ['Body sentence about credit. ' * 20] * 3)
+    loose = ch.chunk_text(text, ch.ChunkingConfig(300, 0))
+    merged = ch.chunk_text(text, ch.ChunkingConfig(300, 0, min_chunk_chars=50))
+
+    assert sum(len(c) < 50 for c in loose) > sum(len(c) < 50 for c in merged)
+    assert all(len(c) <= 300 for c in merged)
 
 
 @pytest.mark.parametrize('size, overlap', [(0, 0), (100, 100), (100, -1)])
@@ -125,3 +157,8 @@ def test_chunk_counts_by_bank_and_section(tmp_path):
 
     assert counts.loc['GS', 'mdna'] == counts.loc['GS', 'risk_factors'] > 0
     assert counts.loc['TOTAL', 'total'] == len(chunks)
+
+
+def test_min_chunk_chars_must_be_below_chunk_size():
+    with pytest.raises(ValueError):
+        ch.ChunkingConfig(100, 0, min_chunk_chars=100)

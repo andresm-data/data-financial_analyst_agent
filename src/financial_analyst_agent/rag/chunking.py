@@ -59,6 +59,8 @@ class ChunkingConfig:
     chunk_size: int
     chunk_overlap: int
     separators: tuple[str, ...] = DEFAULT_SEPARATORS
+    # Los chunks más cortos que esto se unen a un vecino si cabe (0 = nunca).
+    min_chunk_chars: int = 0
 
     def __post_init__(self) -> None:
         if self.chunk_size <= 0:
@@ -69,6 +71,8 @@ class ChunkingConfig:
         # separador, el divisor podría cortarlas por la mitad.
         if not self.separators or self.separators[0] != BLOCK_SEPARATOR:
             raise ValueError(f'separators debe empezar por {BLOCK_SEPARATOR!r}')
+        if not 0 <= self.min_chunk_chars < self.chunk_size:
+            raise ValueError('min_chunk_chars debe estar entre 0 y chunk_size')
 
 
 # =============================================================================
@@ -81,6 +85,7 @@ def load_chunking_config(path: Path = RAG_CONFIG_FILE) -> ChunkingConfig:
         chunk_size=int(chunking['chunk_size']),
         chunk_overlap=int(chunking['chunk_overlap']),
         separators=tuple(chunking.get('separators', DEFAULT_SEPARATORS)),
+        min_chunk_chars=int(chunking.get('min_chunk_chars', 0)),
     )
 
 
@@ -126,13 +131,55 @@ def split_table(block: Block, config: ChunkingConfig) -> list[str]:
 
 
 # =============================================================================
+def join_chunks(first: str, second: str) -> str:
+    """Une dos chunks seguidos sin repetir el solapamiento entre ellos.
+
+    Si el final de `first` coincide con el inicio de `second` (el texto que
+    el divisor repite entre chunks), esa parte aparece una sola vez.
+    """
+    for k in range(min(len(first), len(second)), 0, -1):
+        if first.endswith(second[:k]):
+            return first + second[k:]
+
+    return f'{first}\n{second}'
+
+
+# =============================================================================
+def merge_small_chunks(chunks: list[str], config: ChunkingConfig) -> list[str]:
+    """Une los chunks con menos de `min_chunk_chars` a un vecino.
+
+    Primero se prueba con el siguiente y, si no cabe, con el anterior. Nunca
+    se supera `chunk_size`: si no cabe en ninguno, el chunk queda como está.
+    """
+    merged: list[str] = []
+    pending = list(chunks)
+
+    while pending:
+        chunk = pending.pop(0)
+
+        if len(chunk) >= config.min_chunk_chars:
+            merged.append(chunk)
+            continue
+
+        if pending and len(joined := join_chunks(chunk, pending[0])) <= config.chunk_size:
+            pending[0] = joined
+        elif merged and len(joined := join_chunks(merged[-1], chunk)) <= config.chunk_size:
+            merged[-1] = joined
+        else:
+            merged.append(chunk)
+
+    return merged
+
+
+# =============================================================================
 def chunk_text(text: str, config: ChunkingConfig | None = None) -> list[str]:
     """Divide un texto en chunks según la configuración, sin partir tablas.
 
     Las tablas se separan del texto corrido con una línea en blanco, que es
     el primer separador del divisor: así un chunk empieza al inicio de una
     tabla y no a mitad. Las tablas más largas que `chunk_size` se parten
-    antes con `split_table`, repitiendo su encabezado.
+    antes con `split_table`, repitiendo su encabezado. Al final, los chunks
+    con menos de `min_chunk_chars` se unen a un vecino.
 
     Args:
         text (str): Texto a dividir.
@@ -151,7 +198,9 @@ def chunk_text(text: str, config: ChunkingConfig | None = None) -> list[str]:
         else:
             parts.append(block.text)
 
-    return make_splitter(config).split_text(BLOCK_SEPARATOR.join(parts))
+    chunks = make_splitter(config).split_text(BLOCK_SEPARATOR.join(parts))
+
+    return merge_small_chunks(chunks, config)
 
 
 # =============================================================================

@@ -2,6 +2,7 @@
 chunking:
   chunk_size: 1000     # caracteres máximos por chunk
   chunk_overlap: 150   # caracteres que se repiten entre chunks seguidos
+  min_chunk_chars: 200 # los chunks más cortos se unen a un vecino si cabe
   # Dónde cortar, en orden de preferencia: bloques (tablas/texto), líneas,
   # frases, cláusulas, palabras y caracteres. Debe empezar por "\n\n".
   separators: ["\n\n", "\n", ". ", "; ", " ", ""]

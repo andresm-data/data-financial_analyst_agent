@@ -40,3 +40,30 @@ def test_no_chunk_starts_in_the_middle_of_a_table():
     assert starts_mid_table == []
     assert all(len(c) <= 400 for c in chunks)
     assert sum(c.startswith(header) for c in chunks) > 1
+
+
+def test_intro_sentence_moves_to_its_table():
+    lines = ['Fees grew this year. The table below presents fee income by business.', *TABLE]
+    blocks = tb.split_blocks('\n'.join(lines))
+
+    assert [b.lines for b in blocks] == [
+        ['Fees grew this year.'],
+        ['The table below presents fee income by business.', *TABLE],
+    ]
+    assert blocks[1].intro == 1
+
+
+def test_intro_sentences_that_do_not_introduce_the_next_table_stay():
+    for line in ['In the table above, revenue rose by business.', PROSE]:
+        blocks = tb.split_blocks('\n'.join([line, *TABLE]))
+
+        assert blocks[0].lines == [line]
+        assert blocks[1].intro == 0
+
+
+def test_table_header_keeps_columns_when_intro_does_not_fit():
+    intro = 'The following table presents ' + 'a long description ' * 10 + ':'
+    block = tb.Block([intro, *TABLE], is_table=True, intro=1)
+
+    assert tb.table_header(block, max_chars=100) == TABLE[:2]
+    assert tb.table_header(block, max_chars=1000) == [intro, *TABLE[:2]]

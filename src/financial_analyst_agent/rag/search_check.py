@@ -1,6 +1,7 @@
 """Comprueba la búsqueda en Chroma con 3 preguntas sobre bancos concretos.
 
-Para cada pregunta hace `similarity_search` con k=5 (sin filtros), imprime
+Para cada pregunta hace `similarity_search` con k=5, filtrando por el banco
+y el año que nombra la pregunta (`retrieval.search`), imprime
 los resultados con su metadata y comprueba que cada chunk viene del banco y
 del año fiscal esperados y que tiene la metadata completa. Uso:
 `poetry run search_check` (después de `index_chunks`).
@@ -11,6 +12,7 @@ from langchain_chroma import Chroma
 from langchain_core.documents import Document
 
 from financial_analyst_agent.rag.chunking import CHUNK_METADATA_KEYS
+from financial_analyst_agent.rag.retrieval import search
 from financial_analyst_agent.rag.vectorstore import get_vectorstore
 
 # =============================================================================
@@ -58,7 +60,7 @@ def check(store: Chroma, questions: list[Question] = QUESTIONS, k: int = K) -> i
 
     for n, question in enumerate(questions, 1):
         print(f'\n[{n}] {question.text}  (esperado: {question.ticker} {question.fiscal_year})')
-        for rank, doc in enumerate(store.similarity_search(question.text, k=k), 1):
+        for rank, doc in enumerate(search(store, question.text, k=k), 1):
             meta = doc.metadata
             issues = problems(doc, question)
             failures += bool(issues)

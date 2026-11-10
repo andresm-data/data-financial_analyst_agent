@@ -54,3 +54,37 @@ def test_retriever_filters_by_bank_and_year(tmp_path):
     docs = ch.get_retriever(store, k=5).invoke('JPMorgan income in 2024')
 
     assert [d.metadata['fiscal_year'] for d in docs] == [2024]
+
+
+BAC = Document(page_content='y', metadata={'company': 'Bank of America', 'fiscal_year': 2023,
+                                           'section': 'risk_factors', 'section_title': 'Risk Factors'})
+
+
+def test_citations_remove_duplicates_in_order():
+    assert ch.citations([DOC, BAC, DOC]) == [
+        "JPMorgan Chase | FY2024 | Management's Discussion and Analysis",
+        'Bank of America | FY2023 | Risk Factors',
+    ]
+
+
+def test_format_answer_lists_company_year_and_section():
+    text = ch.format_answer({'question': 'q?', 'answer': ' $92.6 billion. ', 'context': [DOC, BAC]})
+
+    assert text == (
+        'Q: q?\nA: $92.6 billion.\nSources:\n'
+        "  - JPMorgan Chase | FY2024 | Management's Discussion and Analysis\n"
+        '  - Bank of America | FY2023 | Risk Factors'
+    )
+
+
+def test_format_answer_without_answer_has_no_sources():
+    text = ch.format_answer({'question': 'q?', 'answer': 'I do not know.', 'context': [DOC]})
+
+    assert text.endswith('Sources: none (the answer is not in the context)')
+    assert 'JPMorgan' not in text
+
+
+def test_is_no_answer():
+    assert ch.is_no_answer('I do not know')
+    assert ch.is_no_answer(' i do not know. ')
+    assert not ch.is_no_answer('I do not know the exact figure, but it rose.')

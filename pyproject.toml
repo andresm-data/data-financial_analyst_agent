@@ -22,6 +22,7 @@ chunk_report = "financial_analyst_agent.rag.report:main"
 table_eval = "financial_analyst_agent.rag.table_eval:main"
 index_chunks = "financial_analyst_agent.rag.vectorstore:run"
 search_check = "financial_analyst_agent.rag.search_check:main"
+ask = "financial_analyst_agent.rag.chain:main"
 
 [tool.poetry]
 packages = [{ include = "financial_analyst_agent", from = "src" }]

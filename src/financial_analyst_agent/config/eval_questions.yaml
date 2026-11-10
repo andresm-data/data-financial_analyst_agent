@@ -10,9 +10,9 @@ questions:
     expected_answer: [balance sheet actions, investment securities, revolving balances]
 
   - text: How did Bank of America deposits change in 2023?
-    expected_chunks: [BAC_2023_mdna_0211]
-    expected_answer: [1.92 trillion]
-    forbidden: [increase]
+    expected_chunks: [BAC_2023_mdna_0211, BAC_2023_mdna_0035, BAC_2023_mdna_0220]
+    expected_answer: [1.92 trillion, 6.5 billion]
+    forbidden: [deposits increased, increased from]
 
   - text: What risks does Goldman Sachs see from its Asset & Wealth Management business in 2025?
     expected_chunks: [GS_2025_risk_factors_0029, GS_2025_mdna_0050, GS_2025_mdna_0120]

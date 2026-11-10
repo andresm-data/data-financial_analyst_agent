@@ -85,3 +85,62 @@ def test_grounded_chain_turns_bad_json_into_no_answer():
 
     assert result['answer'] == 'I do not know'
     assert ch.format_answer(result).endswith('Sources: none (the answer is not in the context)')
+
+
+# =============================================================================
+BAC_CHUNK = Document(
+    page_content=(
+        "Bank of America | FY2023 | Management's Discussion and Analysis | Liabilities\n"
+        'All Other Assets\n'
+        'All other assets increased $15.7 billion primarily driven by Global Markets activity.\n'
+        'Liabilities\n'
+        'At December 31, 2023, total liabilities were approximately $2.9 trillion, up from the prior year.\n'
+        'Deposits\n'
+        'Deposits decreased $6.5 billion primarily due to an increase in customer spending.'
+    ),
+    metadata={'chunk_id': 'BAC_0035', 'company': 'Bank of America', 'fiscal_year': 2023,
+              'section': 'mdna', 'section_title': "Management's Discussion and Analysis",
+              'heading': 'Liabilities'},
+)
+CITI_CHUNK = Document(
+    page_content=(
+        'Citigroup | FY2024 | MD&A | EXECUTIVE SUMMARY > Cost of Credit\n'
+        'In January 2025, a series of wildfires affected the Los Angeles metropolitan area.\n'
+        'Capital\n'
+        'Citigroup’s CET1 Capital ratio was 13.6% as of December 31, 2024, compared to 13.4% in 2023.'
+    ),
+    metadata={'chunk_id': 'C_0011', 'heading': 'EXECUTIVE SUMMARY > Cost of Credit'},
+)
+
+
+def test_quote_line():
+    assert gr.quote_line(BAC_CHUNK.page_content, 'Deposits decreased $6.5 billion') == 6
+    assert gr.quote_line(BAC_CHUNK.page_content, 'not in the chunk') is None
+    assert gr.quote_line(BAC_CHUNK.page_content, ' ... ') is None
+
+
+def test_with_quote_heading_uses_heading_before_the_quote():
+    bac = gr.with_quote_heading(BAC_CHUNK, 'Deposits decreased $6.5 billion primarily due to an increase')
+    citi = gr.with_quote_heading(CITI_CHUNK, "Citigroup's CET1 Capital ratio was 13.6%")
+
+    assert bac.metadata['heading'] == 'Deposits'
+    assert citi.metadata['heading'] == 'EXECUTIVE SUMMARY > Capital'
+    assert BAC_CHUNK.metadata['heading'] == 'Liabilities'  # el original no cambia
+
+
+def test_with_quote_heading_keeps_chunk_heading_without_inner_heading():
+    doc = gr.with_quote_heading(CITI_CHUNK, 'In January 2025, a series of wildfires')
+
+    assert doc.metadata['heading'] == 'EXECUTIVE SUMMARY > Cost of Credit'
+
+
+def test_with_quote_heading_fixes_a_chunk_that_spans_sections():
+    doc = gr.with_quote_heading(BAC_CHUNK, 'All other assets increased $15.7 billion')
+
+    assert doc.metadata['heading'] == 'All Other Assets'
+
+
+def test_ground_cites_the_heading_of_the_quote():
+    result = gr.ground(reply('Deposits decreased $6.5 billion.', 'Deposits decreased $6.5 billion', 1), [BAC_CHUNK])
+
+    assert result['sources'][0].metadata['heading'] == 'Deposits'

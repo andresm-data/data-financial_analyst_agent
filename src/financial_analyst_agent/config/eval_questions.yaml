@@ -1,0 +1,51 @@
+# Preguntas para evaluar el RAG (`poetry run rag_eval`).
+# - expected_chunks: chunks que contienen la respuesta; la recuperación acierta
+#   si al menos uno llega al top k. Vacío = la respuesta no está en los 10-K.
+# - expected_answer: la respuesta es correcta si contiene alguno de estos textos.
+#   Vacío = la respuesta correcta es exactamente "I do not know".
+# - forbidden: textos que delatan una respuesta equivocada.
+questions:
+  - text: What drove JPMorgan Chase's net interest income in 2024?
+    expected_chunks: [JPM_2024_mdna_0036]
+    expected_answer: [balance sheet actions, investment securities, revolving balances]
+
+  - text: How did Bank of America deposits change in 2023?
+    expected_chunks: [BAC_2023_mdna_0211, BAC_2023_mdna_0035, BAC_2023_mdna_0220]
+    expected_answer: [1.92 trillion, 6.5 billion]
+    forbidden: [deposits increased, increased from]
+
+  - text: What risks does Goldman Sachs see from its Asset & Wealth Management business in 2025?
+    expected_chunks: [GS_2025_risk_factors_0029, GS_2025_mdna_0050, GS_2025_mdna_0120]
+    expected_answer: [asset prices, lower fees, withdraw]
+
+  - text: What was Citigroup's CET1 capital ratio in 2024?
+    expected_chunks: [C_2024_mdna_0054]
+    expected_answer: ["13.63", "13.6%"]
+    forbidden: ["5.8"]
+
+  - text: What was Morgan Stanley's Common Equity Tier 1 capital ratio in 2024?
+    expected_chunks: [MS_2024_mdna_0008, MS_2024_mdna_0018]
+    expected_answer: ["15.9"]
+
+  - text: What were Goldman Sachs net revenues in 2024?
+    expected_chunks: [GS_2024_mdna_0008, GS_2024_mdna_0046]
+    expected_answer: ["53.51", "53,512"]
+
+  - text: What was Citigroup's net income in 2024?
+    expected_chunks: [C_2024_mdna_0004]
+    expected_answer: ["12.7 billion"]
+
+  - text: What was Truist's Consumer and Small Business Banking net income in 2024?
+    expected_chunks: [TFC_2024_mdna_0046]
+    expected_answer: ["3.5 billion", "3,490"]
+
+  - text: What were JPMorgan Chase's total assets at the end of 2024?
+    expected_chunks: [JPM_2024_mdna_0002]
+    expected_answer: ["4.0 trillion"]
+
+  # La respuesta no está en los 10-K.
+  - text: What was Apple's iPhone revenue in 2024?
+
+  - text: How many bitcoins did Truist Financial hold on its balance sheet in 2024?
+
+  - text: What was the App Store rating of Bank of America's mobile app in 2023?

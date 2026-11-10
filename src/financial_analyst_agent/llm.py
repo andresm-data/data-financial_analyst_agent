@@ -18,12 +18,18 @@ MODEL_NAME = 'llama3.2:3b'
 DEFAULT_BASE_URL = 'http://localhost:11434'
 
 
-def get_llm(temperature: float = 0.0) -> ChatOllama:
-    """Devuelve el chat de llama3.2:3b conectado al servidor local de Ollama."""
+def get_llm(temperature: float = 0.0, json_mode: bool = False) -> ChatOllama:
+    """Devuelve el chat de llama3.2:3b conectado al servidor local de Ollama.
+
+    Con `json_mode`, Ollama obliga al modelo a responder con JSON válido.
+    """
     load_dotenv(ENV_FILE)
     base_url = os.getenv('OLLAMA_BASE_URL') or DEFAULT_BASE_URL
 
-    return ChatOllama(model=MODEL_NAME, base_url=base_url, temperature=temperature)
+    return ChatOllama(
+        model=MODEL_NAME, base_url=base_url, temperature=temperature,
+        format='json' if json_mode else None,
+    )
 
 
 def main() -> None:

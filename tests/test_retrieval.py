@@ -75,3 +75,48 @@ def test_search_only_returns_bank_and_year_from_question(tmp_path):
     results = rt.search(store, question, k=3, banks=BANKS)
 
     assert [d.page_content for d in results] == ['Deposits fell.']
+
+
+# =============================================================================
+BANKS_GS = [{'ticker': 'GS', 'name': 'Goldman Sachs', 'aliases': ['Goldman']},
+            {'ticker': 'MS', 'name': 'Morgan Stanley', 'aliases': ['MS']}]
+
+
+def chunk(chunk_id, text, ticker='GS', year=2025):
+    return Document(page_content=text, metadata={'chunk_id': chunk_id, 'ticker': ticker, 'fiscal_year': year})
+
+
+def test_tokenize_keeps_numbers_and_drops_stopwords():
+    assert rt.tokenize('What was the CET1 ratio of 13.63% and $1,234?') == ['cet1', 'ratio', '13.63', '1,234']
+
+
+def test_rrf_fuse_rewards_chunks_found_by_both():
+    a, b, c = chunk('a', 'x'), chunk('b', 'x'), chunk('c', 'x')
+
+    fused = rt.rrf_fuse([[a, b], [c, b]], k=2)
+
+    assert [d.metadata['chunk_id'] for d in fused] == ['b', 'a']
+
+
+def test_bm25_and_hybrid_search_find_exact_terms(tmp_path):
+    store = vs.get_vectorstore(tmp_path, DeterministicFakeEmbedding(size=8))
+    docs = [
+        chunk('gs1', 'Net revenues increased in Global Banking.'),
+        chunk('gs2', 'The CET1 capital ratio was 15.0%.'),
+        chunk('gs3', 'Operating expenses were higher.'),
+        chunk('ms1', 'The CET1 capital ratio was 16.0%.', ticker='MS'),
+    ]
+    store.add_documents(docs, ids=[d.metadata['chunk_id'] for d in docs])
+
+    bm25 = rt.bm25_search(store, 'Goldman CET1 ratio in 2025', k=1, banks=BANKS_GS)
+    hybrid = rt.hybrid_search(store, 'Goldman CET1 ratio in 2025', k=3, banks=BANKS_GS)
+
+    assert [d.metadata['chunk_id'] for d in bm25] == ['gs2']
+    assert 'gs2' in [d.metadata['chunk_id'] for d in hybrid]
+    assert all(d.metadata['ticker'] == 'GS' for d in hybrid)
+
+
+def test_bm25_search_without_matches_returns_nothing(tmp_path):
+    store = vs.get_vectorstore(tmp_path, DeterministicFakeEmbedding(size=8))
+
+    assert rt.bm25_search(store, 'Goldman in 2025', banks=BANKS_GS) == []

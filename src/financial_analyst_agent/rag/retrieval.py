@@ -5,16 +5,30 @@ chunks casi nunca dice de qué banco es, y los 10-K de años distintos repiten
 párrafos casi iguales. Por eso se buscan en la pregunta los bancos (por
 nombre, alias o ticker de config/companies.yaml) y los años, y se usan como
 filtro sobre la metadata `ticker` y `fiscal_year` antes de comparar vectores.
+
+`hybrid_search` suma una búsqueda por palabras (BM25) sobre los mismos chunks
+filtrados: encuentra términos exactos como "CET1" o el nombre de un segmento
+que los embeddings de bge-small no distinguen bien en tablas llenas de números.
 """
 import re
+from collections import defaultdict
 
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
+from rank_bm25 import BM25Okapi
 
 from financial_analyst_agent.ingest.download_10k import load_banks
 
 # =============================================================================
 K = 5
+CANDIDATES = 30  # chunks que aporta cada búsqueda en la búsqueda híbrida
+RRF_K = 60       # constante habitual de Reciprocal Rank Fusion
+
+# Palabras (y cifras como 13.63 o 1,234) en minúsculas, sin palabras vacías.
+TOKEN_PATTERN = re.compile(r'[a-z0-9]+(?:[.,][0-9]+)*')
+STOPWORDS = frozenset(
+    'a an and are as at by did do does for from how in is it its of on or the to was were what with'.split()
+)
 
 # Años de cuatro cifras sueltos o con prefijo FY ("2024", "FY2024").
 YEAR_PATTERN = re.compile(r'(?<!\d)(?:FY)?(20\d{2})(?!\d)', re.IGNORECASE)
@@ -77,3 +91,51 @@ def search(
     un año que no está indexado, no devuelve nada.
     """
     return store.similarity_search(question, k=k, filter=question_filter(question, banks))
+
+
+# =============================================================================
+def tokenize(text: str) -> list[str]:
+    """Palabras y cifras en minúsculas para BM25, sin palabras vacías."""
+    return [word for word in TOKEN_PATTERN.findall(text.lower()) if word not in STOPWORDS]
+
+
+def bm25_search(
+    store: Chroma, question: str, k: int = CANDIDATES, banks: list[dict] | None = None
+) -> list[Document]:
+    """Los `k` chunks con más palabras de la pregunta (BM25), del banco y año que nombra."""
+    stored = store.get(where=question_filter(question, banks), include=['documents', 'metadatas'])
+    docs = [
+        Document(page_content=text, metadata=metadata)
+        for text, metadata in zip(stored['documents'], stored['metadatas'])
+    ]
+    if not docs:
+        return []
+
+    scores = BM25Okapi([tokenize(doc.page_content) for doc in docs]).get_scores(tokenize(question))
+    ranked = sorted(range(len(docs)), key=lambda i: scores[i], reverse=True)
+
+    return [docs[i] for i in ranked[:k]]
+
+
+def rrf_fuse(rankings: list[list[Document]], k: int = CANDIDATES) -> list[Document]:
+    """Une varias listas ordenadas con Reciprocal Rank Fusion (por `chunk_id`)."""
+    scores: dict[str, float] = defaultdict(float)
+    docs: dict[str, Document] = {}
+    for ranking in rankings:
+        for rank, doc in enumerate(ranking, 1):
+            chunk_id = doc.metadata['chunk_id']
+            scores[chunk_id] += 1 / (RRF_K + rank)
+            docs.setdefault(chunk_id, doc)
+
+    ranked = sorted(scores, key=scores.get, reverse=True)
+    return [docs[chunk_id] for chunk_id in ranked[:k]]
+
+
+def hybrid_search(
+    store: Chroma, question: str, k: int = CANDIDATES, banks: list[dict] | None = None
+) -> list[Document]:
+    """Candidatos de la búsqueda vectorial y de BM25, fusionados con RRF."""
+    return rrf_fuse([
+        search(store, question, k=k, banks=banks),
+        bm25_search(store, question, k=k, banks=banks),
+    ], k=k)

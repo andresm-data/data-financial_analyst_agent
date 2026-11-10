@@ -41,3 +41,10 @@
 3. Result: 11 correct, 1 missed, 0 wrong, 0 invented (before: 10 / 0 / 2 / 0). Retrieval hit@5 fell from 0.89 to 0.67 and MRR from 0.76 to 0.59, partly because other chunks also hold the answer (Citi CET1 13.6% in `C_2024_mdna_0011`).
 4. Failure: JPM total assets went from a wrong answer (segment table) to "I do not know", because `JPM_2024_mdna_0002` ($4.0 trillion) dropped out of the top 5.
 5. Caveat: the JPM 2024 NII answer is graded correct but quotes the Corporate segment ($9.8 billion NII); the drivers match the firm-wide ones, and the citation now shows "CORPORATE", so a reader can spot it.
+
+## Single-word headings and the heading of the quote
+1. One-word Title Case lines ("Deposits", "Overview", "Liquidity", "Market") now count as headings when a paragraph follows them; otherwise they are usually table header pieces ("Average", "Total"). Chunks without a heading fell from 647 to 60, mostly in Risk Factors.
+2. A chunk can span several subsections, so the cited source now takes the last heading before the quoted sentence: BAC 2023 deposits cites "> Deposits" (was "All Other Assets") and Citi 2024 CET1 cites "> EXECUTIVE SUMMARY > Capital" (was "Cost of Credit").
+3. Only the 1,795 chunks whose heading changed were re-embedded (~2 min instead of ~14 min).
+4. Eval: 10 correct, 1 missed, 1 wrong, 0 invented; hit@5 0.67, MRR 0.54. The "wrong" one is GS 2025 AWM risks: it quotes the same chunk as before but another bullet (market uncertainty), a real risk that lacks the expected keywords; the grader's keyword match is too strict for open questions.
+5. Pending: JPM total assets still answers "I do not know" because the $4.0 trillion chunk is not retrieved, and llama3.2:3b picks different sentences between runs, so open questions need a better grader (e.g. several accepted answers or an LLM judge).

@@ -38,6 +38,7 @@ def build_chain(retriever: Runnable, llm: BaseChatModel) -> Runnable:
         | RAG_PROMPT
         | llm
         | StrOutputParser()
+        | RunnableLambda(clean_answer)
     )
 
     return RunnableParallel(context=retriever, question=RunnablePassthrough()).assign(answer=answer)
@@ -60,9 +61,24 @@ QUESTIONS = [
 
 
 # =============================================================================
+# Formas en que llama3.2:3b dice que el contexto no tiene la respuesta en vez
+# de decir "I do not know" (y a veces sigue con algo que no se preguntó).
+NO_ANSWER_PREFIXES = (
+    'the context does not',
+    'the provided context does not',
+    'there is no information',
+)
+
+
 def is_no_answer(answer: str) -> bool:
     """True si el modelo dijo que el contexto no tiene la respuesta."""
-    return answer.strip().rstrip('.').lower() == NO_ANSWER.lower()
+    text = answer.strip().lower()
+    return text.rstrip('.') == NO_ANSWER.lower() or text.startswith(NO_ANSWER_PREFIXES)
+
+
+def clean_answer(answer: str) -> str:
+    """Quita espacios y deja "I do not know." como exactamente `NO_ANSWER`."""
+    return NO_ANSWER if is_no_answer(answer) else answer.strip()
 
 
 def citations(docs: list[Document]) -> list[str]:

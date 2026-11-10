@@ -87,4 +87,16 @@ def test_format_answer_without_answer_has_no_sources():
 def test_is_no_answer():
     assert ch.is_no_answer('I do not know')
     assert ch.is_no_answer(' i do not know. ')
+    assert ch.is_no_answer('The context does not provide a reason. However, in 2025...')
     assert not ch.is_no_answer('I do not know the exact figure, but it rose.')
+
+
+def test_clean_answer():
+    assert ch.clean_answer(' I do not know. ') == 'I do not know'
+    assert ch.clean_answer(' $92.6 billion. ') == '$92.6 billion.'
+
+
+def test_chain_returns_exact_no_answer():
+    chain = ch.build_chain(RunnableLambda(lambda q: []), FakeListChatModel(responses=['I do not know.']))
+
+    assert chain.invoke('Anything?')['answer'] == 'I do not know'

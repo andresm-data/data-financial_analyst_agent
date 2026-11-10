@@ -2,6 +2,9 @@
 
 La cadena devuelve la respuesta junto con los chunks recuperados, para
 poder citar después la empresa, el año y la sección de cada fuente.
+
+El retriever por defecto (`default_retriever`) hace búsqueda híbrida
+(vectores + BM25) con 30 candidatos y los reordena con bge-reranker.
 """
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
@@ -11,19 +14,34 @@ from langchain_core.runnables import Runnable, RunnableLambda, RunnableParallel,
 
 from financial_analyst_agent.llm import get_llm
 from financial_analyst_agent.rag.prompt import NO_ANSWER, RAG_PROMPT, format_docs, source_label
-from financial_analyst_agent.rag.retrieval import K, search
+from financial_analyst_agent.rag.rerank import Scorer, get_reranker, rerank
+from financial_analyst_agent.rag.retrieval import CANDIDATES, K, hybrid_search, search
 from financial_analyst_agent.rag.vectorstore import get_vectorstore
 
 
 # =============================================================================
-def get_retriever(store: Chroma, k: int = K) -> Runnable:
+def get_retriever(
+    store: Chroma, k: int = K, scorer: Scorer | None = None, candidates: int = CANDIDATES
+) -> Runnable:
     """Retriever de Chroma con `k` resultados, filtrado por banco y año.
 
-    Usa `retrieval.search`, que filtra por el banco y el año que nombra la
-    pregunta antes de comparar vectores; sin ese filtro, los 10-K de otros
-    bancos o años desplazan a los correctos.
+    Sin `scorer`, es la búsqueda vectorial de `retrieval.search`. Con
+    `scorer`, junta `candidates` chunks de la búsqueda híbrida (vectores +
+    BM25) y se queda con los `k` que mejor puntúa el reranker. En los dos
+    casos se filtra por el banco y el año que nombra la pregunta.
     """
-    return RunnableLambda(lambda question: search(store, question, k=k), name='chroma_retriever')
+    if scorer is None:
+        return RunnableLambda(lambda question: search(store, question, k=k), name='chroma_retriever')
+
+    return RunnableLambda(
+        lambda question: rerank(question, hybrid_search(store, question, k=candidates), scorer, top_n=k),
+        name='hybrid_rerank_retriever',
+    )
+
+
+def default_retriever(store: Chroma) -> Runnable:
+    """Búsqueda híbrida con 30 candidatos reordenados por bge-reranker (top 5)."""
+    return get_retriever(store, scorer=get_reranker().predict)
 
 
 # =============================================================================
@@ -46,7 +64,7 @@ def build_chain(retriever: Runnable, llm: BaseChatModel) -> Runnable:
 
 def get_chain() -> Runnable:
     """Cadena sobre la colección persistente de data/chroma/ y el modelo local."""
-    return build_chain(get_retriever(get_vectorstore()), get_llm())
+    return build_chain(default_retriever(get_vectorstore()), get_llm())
 
 
 # =============================================================================
@@ -110,7 +128,7 @@ def main() -> None:
     if store._collection.count() == 0:
         raise RuntimeError('La colección está vacía; ejecuta `index_chunks` antes')
 
-    chain = build_chain(get_retriever(store), get_llm())
+    chain = build_chain(default_retriever(store), get_llm())
     for n, question in enumerate(QUESTIONS, 1):
         print(f'\n[{n}] ' + format_answer(chain.invoke(question)))
 

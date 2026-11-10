@@ -23,7 +23,7 @@ from langchain_core.runnables import Runnable
 
 from financial_analyst_agent.ingest.download_10k import PACKAGE_DIR, PROJECT_ROOT
 from financial_analyst_agent.llm import get_llm
-from financial_analyst_agent.rag.chain import build_chain, get_retriever, is_no_answer
+from financial_analyst_agent.rag.chain import build_chain, default_retriever, is_no_answer
 from financial_analyst_agent.rag.vectorstore import get_vectorstore
 
 # =============================================================================
@@ -157,7 +157,7 @@ def main() -> None:
     args = parser.parse_args()
 
     questions = load_questions()
-    retriever = get_retriever(get_vectorstore())
+    retriever = default_retriever(get_vectorstore())
     report = {
         'questions_file': str(EVAL_FILE.relative_to(PROJECT_ROOT)),
         'retrieval': evaluate_retrieval(retriever, questions),

@@ -132,9 +132,31 @@ def test_every_chunk_has_section_metadata(tmp_path):
             'section_title': "Management's Discussion and Analysis",
             'source_file': 'data/raw/10k/GS_2025-02-27_gs-20241231.htm',
             'section_file': 'data/processed/sections/GS_2024_mdna.txt',
+            'heading': '',
             'chunk_index': i,
             'chunk_id': f'GS_2024_mdna_{i:04d}',
         }
+
+
+def test_chunks_start_with_context_line_and_heading(tmp_path):
+    metadata_file = write_section(tmp_path)
+    section_file = tmp_path / 'data/processed/sections/GS_2024_mdna.txt'
+    section_file.write_text('ASSET & WEALTH MANAGEMENT\n' + TEXT, encoding='utf-8')
+
+    chunks = ch.chunk_section(metadata_file, ch.ChunkingConfig(300, 50), root=tmp_path)
+
+    first, last = chunks[0], chunks[-1]
+    assert first.page_content.startswith(
+        "Goldman Sachs | FY2024 | Management's Discussion and Analysis | ASSET & WEALTH MANAGEMENT\n"
+    )
+    assert last.metadata['heading'] == 'ASSET & WEALTH MANAGEMENT'
+    assert last.page_content.split('\n', 1)[1].startswith('Line')
+
+
+def test_context_line_without_heading():
+    section = {'company': 'Truist Financial Corp', 'fiscal_year': 2024, 'section_title': 'Risk Factors'}
+
+    assert ch.context_line(section, '') == 'Truist Financial Corp | FY2024 | Risk Factors'
 
 
 def test_save_and_load_chunks_round_trip(tmp_path):

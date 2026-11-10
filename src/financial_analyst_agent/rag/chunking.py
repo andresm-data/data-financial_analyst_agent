@@ -6,6 +6,10 @@ se pueden ajustar sin tocar el código.
 `main` lee las secciones de data/processed/sections/ (un .txt y un .json de
 metadatos por sección), las divide y guarda todos los chunks con sus
 metadatos en data/processed/chunks/chunks.jsonl.
+
+Cada chunk empieza con una línea de contexto (empresa, año, sección y título
+del apartado), para que los embeddings y BM25 sepan, por ejemplo, que una
+tabla es de un segmento y no de toda la firma.
 """
 import json
 import logging
@@ -24,6 +28,7 @@ from financial_analyst_agent.ingest.download_10k import (
 )
 from financial_analyst_agent.ingest.sections import SECTIONS_DIR
 from financial_analyst_agent.rag.cleaning import clean_section_text
+from financial_analyst_agent.rag.headings import chunk_headings
 from financial_analyst_agent.rag.tables import Block, split_blocks, table_header
 
 logger = logging.getLogger(__name__)
@@ -219,6 +224,13 @@ def section_text(section: dict, root: Path = PROJECT_ROOT) -> str:
 
 
 # =============================================================================
+def context_line(section: dict, heading: str) -> str:
+    """Línea de contexto que se antepone al chunk: empresa, año, sección y apartado."""
+    parts = [section['company'], f"FY{section['fiscal_year']}", section['section_title'], heading]
+    return ' | '.join(part for part in parts if part)
+
+
+# =============================================================================
 def chunk_section(
     metadata_file: Path, config: ChunkingConfig, root: Path = PROJECT_ROOT
 ) -> list[Document]:
@@ -230,21 +242,26 @@ def chunk_section(
         root (Path): Raíz contra la que se resuelve `section_file`.
 
     Returns:
-        list[Document]: Chunks con `company`, `ticker`, `fiscal_year`,
-            `filing_date`, `section`, `section_title`, `source_file`,
-            `section_file`, `chunk_index` y `chunk_id`.
+        list[Document]: Chunks que empiezan con su línea de contexto, con
+            `company`, `ticker`, `fiscal_year`, `filing_date`, `section`,
+            `section_title`, `source_file`, `section_file`, `heading`,
+            `chunk_index` y `chunk_id`. La línea de contexto se añade después
+            de dividir, así que no cambia los cortes ni los `chunk_id`.
     """
     section = json.loads(metadata_file.read_text(encoding='utf-8'))
     text = section_text(section, root)
     base = {key: section[key] for key in CHUNK_METADATA_KEYS}
     stem = f"{section['ticker']}_{section['fiscal_year']}_{section['section']}"
+    chunks = chunk_text(text, config)
 
     return [
         Document(
-            page_content=chunk,
-            metadata={**base, 'chunk_index': i, 'chunk_id': f'{stem}_{i:04d}'},
+            page_content=f'{context_line(section, heading)}\n{chunk}',
+            metadata={
+                **base, 'heading': heading, 'chunk_index': i, 'chunk_id': f'{stem}_{i:04d}',
+            },
         )
-        for i, chunk in enumerate(chunk_text(text, config))
+        for i, (chunk, heading) in enumerate(zip(chunks, chunk_headings(text, chunks)))
     ]
 
 

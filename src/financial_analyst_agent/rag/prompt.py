@@ -49,9 +49,15 @@ GROUNDED_PROMPT = ChatPromptTemplate.from_messages([
 
 # =============================================================================
 def source_label(doc: Document) -> str:
-    """Empresa, año fiscal y sección de un chunk ("JPMorgan Chase | FY2024 | ...")."""
+    """Empresa, año fiscal y sección de un chunk ("JPMorgan Chase | FY2024 | ...").
+
+    Si el chunk tiene título de apartado, se añade a la sección
+    ("Management's Discussion and Analysis > ASSET & WEALTH MANAGEMENT").
+    """
     meta = doc.metadata
     section = meta.get('section_title') or meta.get('section')
+    if meta.get('heading'):
+        section = f"{section} > {meta['heading']}"
 
     return f"{meta.get('company')} | FY{meta.get('fiscal_year')} | {section}"
 

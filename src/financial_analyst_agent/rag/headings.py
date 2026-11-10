@@ -17,7 +17,8 @@ from financial_analyst_agent.rag.tables import is_row
 # =============================================================================
 MIN_HEADING_CHARS = 4
 MAX_HEADING_CHARS = 80
-MIN_CAPS_HEADING_CHARS = 6   # un título de una sola palabra debe ir en mayúsculas
+MIN_CAPS_HEADING_CHARS = 6   # título de una palabra en mayúsculas ("CORPORATE")
+MIN_PARAGRAPH_CHARS = 60     # línea que sigue a un título de una palabra ("Deposits")
 MAX_REPEATS = 5              # más repeticiones = encabezado de página
 MIN_CAPS_HEADINGS = 3        # títulos en mayúsculas para usarlos como nivel superior
 
@@ -31,12 +32,25 @@ SEPARATOR = ' > '
 
 
 # =============================================================================
+def starts_paragraph(line: str | None) -> bool:
+    """True si la línea es un párrafo: larga, empieza en mayúscula y acaba en punto.
+
+    Una palabra suelta ("Deposits", "Overview") seguida de un párrafo es un
+    título; seguida de otra cosa suele ser un trozo de encabezado de tabla
+    ("Average", "Total").
+    """
+    line = (line or '').strip()
+    return len(line) >= MIN_PARAGRAPH_CHARS and line[0].isupper() and line.endswith('.')
+
+
+# =============================================================================
 def is_heading(line: str, next_line: str | None = None) -> bool:
     """True si la línea parece un título de apartado.
 
     Corta, sin cifras ni puntuación final, con todas las palabras en mayúscula
     (salvo artículos y preposiciones). Si no está toda en mayúsculas, además
-    no debe ir seguida de una fila de tabla.
+    no debe ir seguida de una fila de tabla, y si es una sola palabra debe ir
+    seguida de un párrafo.
     """
     line = line.strip()
     if not MIN_HEADING_CHARS <= len(line) <= MAX_HEADING_CHARS:
@@ -51,7 +65,9 @@ def is_heading(line: str, next_line: str | None = None) -> bool:
         return False
     if not all(word[0].isupper() or word.lower() in SMALL_WORDS for word in words):
         return False
-    if len(words) < 2 and not (line.isupper() and len(line) >= MIN_CAPS_HEADING_CHARS):
+    if len(words) < 2 and not (
+        (line.isupper() and len(line) >= MIN_CAPS_HEADING_CHARS) or starts_paragraph(next_line)
+    ):
         return False
 
     # Una línea en tipo título seguida de cifras suele ser un encabezado de

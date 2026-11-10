@@ -9,7 +9,12 @@ from financial_analyst_agent.rag import headings as hd
     ('Consumer and Small Business Banking', 'CSBB net income was $3.5 billion.', True),
     ('Net Interest Income and NIM', None, True),
     ('INTRODUCTION', None, True),
-    ('Deposits', None, False),                          # una palabra, sin mayúsculas
+    ('Deposits', 'Deposits decreased $6.5 billion primarily due to higher customer spending.', True),
+    ('Overview', 'This section describes the results of operations for the full year.', True),
+    ('Deposits', None, False),                          # una palabra sin párrafo después
+    ('Average', 'Balance', False),                      # trozo de encabezado de tabla
+    ('Total', 'Total deposits 1,923,827 1,930,341', False),
+    ('Deposits', 'see page 46.', False),                # lo que sigue no es un párrafo
     ('Net income was $5.4 billion, up 4%.', None, False),
     ('Revenue by line of business', None, False),       # no todas en mayúscula
     ('Percent of', None, False),                        # termina en preposición

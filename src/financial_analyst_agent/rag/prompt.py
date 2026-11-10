@@ -28,6 +28,24 @@ RAG_PROMPT = ChatPromptTemplate.from_messages([
     ('human', HUMAN_TEMPLATE),
 ])
 
+# El modelo copia la frase que sostiene la respuesta y dice de qué chunk sale,
+# para comprobar en código que la cita existe (ver `rag/grounding.py`).
+GROUNDED_RULES = f"""You are a financial analyst who answers questions about banks' 10-K annual reports.
+
+Rules:
+1. Answer ONLY with information from the numbered context below. Do not use outside knowledge.
+2. Find the sentence or table row that answers the question and copy it word for word into "quote".
+3. Write in "source" the number [n] of the context piece that contains the quote.
+4. Write "answer" in at most 3 sentences, using only the quote. Copy numbers and units exactly.
+5. If no piece of the context answers the question, reply {{{{"answer": "{NO_ANSWER}", "quote": "", "source": 0}}}}.
+
+Reply only with a JSON object with the keys "answer", "quote" and "source"."""
+
+GROUNDED_PROMPT = ChatPromptTemplate.from_messages([
+    ('system', GROUNDED_RULES),
+    ('human', HUMAN_TEMPLATE),
+])
+
 
 # =============================================================================
 def source_label(doc: Document) -> str:

@@ -13,7 +13,10 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import Runnable, RunnableLambda, RunnableParallel, RunnablePassthrough
 
 from financial_analyst_agent.llm import get_llm
-from financial_analyst_agent.rag.prompt import NO_ANSWER, RAG_PROMPT, format_docs, source_label
+from financial_analyst_agent.rag.grounding import ground, parse_reply
+from financial_analyst_agent.rag.prompt import (
+    GROUNDED_PROMPT, NO_ANSWER, RAG_PROMPT, format_docs, source_label,
+)
 from financial_analyst_agent.rag.rerank import Scorer, get_reranker, rerank
 from financial_analyst_agent.rag.retrieval import CANDIDATES, K, hybrid_search, search
 from financial_analyst_agent.rag.vectorstore import get_vectorstore
@@ -62,9 +65,36 @@ def build_chain(retriever: Runnable, llm: BaseChatModel) -> Runnable:
     return RunnableParallel(context=retriever, question=RunnablePassthrough()).assign(answer=answer)
 
 
-def get_chain() -> Runnable:
+def build_grounded_chain(retriever: Runnable, llm: BaseChatModel) -> Runnable:
+    """Como `build_chain`, pero el modelo cita la frase en que se apoya.
+
+    El modelo (en modo JSON) devuelve respuesta, cita y número de fuente; la
+    respuesta solo se acepta si la cita y sus cifras están en ese chunk
+    (`grounding.ground`). Devuelve además `quote` y `sources` (el chunk citado).
+    """
+    reply = (
+        RunnableLambda(lambda x: {'context': format_docs(x['context']), 'question': x['question']})
+        | GROUNDED_PROMPT
+        | llm
+        | StrOutputParser()
+        | RunnableLambda(parse_reply)
+    )
+
+    return (
+        RunnableParallel(context=retriever, question=RunnablePassthrough())
+        .assign(reply=reply)
+        | RunnableLambda(lambda x: {
+            'question': x['question'], 'context': x['context'], **ground(x['reply'], x['context']),
+        })
+    )
+
+
+def get_chain(grounded: bool = True) -> Runnable:
     """Cadena sobre la colección persistente de data/chroma/ y el modelo local."""
-    return build_chain(default_retriever(get_vectorstore()), get_llm())
+    retriever = default_retriever(get_vectorstore())
+    if grounded:
+        return build_grounded_chain(retriever, get_llm(json_mode=True))
+    return build_chain(retriever, get_llm())
 
 
 # =============================================================================
@@ -107,12 +137,16 @@ def citations(docs: list[Document]) -> list[str]:
 def format_answer(result: dict) -> str:
     """Respuesta seguida de la empresa, el año y la sección de cada fuente."""
     lines = [f"Q: {result['question']}", f"A: {result['answer'].strip()}"]
+    if result.get('quote'):
+        lines.append(f"Quote: \"{' '.join(result['quote'].split())}\"")
 
     if is_no_answer(result['answer']):
         lines.append('Sources: none (the answer is not in the context)')
     else:
+        # La cadena con cita dice qué chunk usó; la otra cita todos los recuperados.
+        docs = result.get('sources', result['context'])
         lines.append('Sources:')
-        lines += [f'  - {label}' for label in citations(result['context'])] or ['  - none retrieved']
+        lines += [f'  - {label}' for label in citations(docs)] or ['  - none retrieved']
 
     return '\n'.join(lines)
 
@@ -128,7 +162,7 @@ def main() -> None:
     if store._collection.count() == 0:
         raise RuntimeError('La colección está vacía; ejecuta `index_chunks` antes')
 
-    chain = build_chain(default_retriever(store), get_llm())
+    chain = build_grounded_chain(default_retriever(store), get_llm(json_mode=True))
     for n, question in enumerate(QUESTIONS, 1):
         print(f'\n[{n}] ' + format_answer(chain.invoke(question)))
 

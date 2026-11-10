@@ -23,7 +23,7 @@ from langchain_core.runnables import Runnable
 
 from financial_analyst_agent.ingest.download_10k import PACKAGE_DIR, PROJECT_ROOT
 from financial_analyst_agent.llm import get_llm
-from financial_analyst_agent.rag.chain import build_chain, default_retriever, is_no_answer
+from financial_analyst_agent.rag.chain import build_chain, build_grounded_chain, default_retriever, is_no_answer
 from financial_analyst_agent.rag.vectorstore import get_vectorstore
 
 # =============================================================================
@@ -110,6 +110,8 @@ def evaluate_answers(chain: Runnable, questions: list[EvalQuestion]) -> dict:
             'question': question.text,
             'answer': result['answer'],
             'grade': grade_answer(question, result['answer']),
+            'quote': result.get('quote', ''),
+            'sources': [doc.metadata['chunk_id'] for doc in result.get('sources', [])],
             'seconds': round(time.perf_counter() - start, 1),
         })
 
@@ -154,18 +156,22 @@ def main() -> None:
     """Evalúa la recuperación y, salvo --retrieval-only, las respuestas."""
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument('--retrieval-only', action='store_true', help='no llama al LLM')
+    parser.add_argument('--plain', action='store_true', help='cadena sin cita verificada')
     args = parser.parse_args()
 
     questions = load_questions()
     retriever = default_retriever(get_vectorstore())
     report = {
         'questions_file': str(EVAL_FILE.relative_to(PROJECT_ROOT)),
+        'chain': 'plain' if args.plain else 'grounded',
         'retrieval': evaluate_retrieval(retriever, questions),
     }
     print_retrieval(report['retrieval'])
 
     if not args.retrieval_only:
-        report['answers'] = evaluate_answers(build_chain(retriever, get_llm()), questions)
+        chain = (build_chain(retriever, get_llm()) if args.plain
+                 else build_grounded_chain(retriever, get_llm(json_mode=True)))
+        report['answers'] = evaluate_answers(chain, questions)
         print_answers(report['answers'])
 
     print(f'\nInforme guardado en {save_report(report)}')

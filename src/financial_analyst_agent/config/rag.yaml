@@ -1,8 +1,17 @@
 # Parámetros del RAG. Cambiar estos valores cambia el resultado sin tocar código.
 chunking:
-  chunk_size: 1000     # caracteres máximos por chunk
-  chunk_overlap: 150   # caracteres que se repiten entre chunks seguidos
+  chunk_size: 500      # caracteres máximos por chunk (1000 en la prueba 1)
+  chunk_overlap: 75    # caracteres que se repiten entre chunks seguidos (150 en la prueba 1)
   min_chunk_chars: 200 # los chunks más cortos se unen a un vecino si cabe
   # Dónde cortar, en orden de preferencia: bloques (tablas/texto), líneas,
   # frases, cláusulas, palabras y caracteres. Debe empezar por "\n\n".
   separators: ["\n\n", "\n", ". ", "; ", " ", ""]
+
+# Dónde se guardan los chunks y el índice de Chroma, relativo a la raíz del
+# repo. Cada tamaño de chunk tiene los suyos, así que los índices conviven.
+# Para volver al de 1000 (chunk_overlap 150):
+#   chunks_file: data/processed/chunks/chunks.jsonl
+#   chroma_dir: data/chroma
+index:
+  chunks_file: data/processed/chunks/chunks_500.jsonl
+  chroma_dir: data/chroma_500

@@ -49,7 +49,7 @@ Because of the fallbacks, `Revenues` is not directly comparable across banks: fo
 - `fiscal_year` goes from 2006 to 2025. Every bank has all 6 metrics for 2011–2025; earlier years are partial.
 - First year per bank: BAC, C and TFC 2006; GS, JPM and MS 2007.
 - Missing from 2008 on: GS `Deposits`, `Liabilities` and `StockholdersEquity` for 2008, and GS `Revenues` for 2008–2010.
-- `period_end` is December 31 except for 6 rows with November 30: GS `NetIncomeLoss` 2007–2008, and MS `Revenues` and `NetIncomeLoss` 2007–2008.
+- `period_end` is December 31 except for 6 rows with November 30: GS `NetIncomeLoss` 2007–2008, and MS `Revenues` and `NetIncomeLoss` 2007–2008. When an answer uses one of these rows, say that the fiscal year ended on November 30, not December 31.
 
 ## Known data issues
 

@@ -19,7 +19,8 @@ Dos fases, para no tener los dos modelos en memoria a la vez y poder retomar:
 RAGAS califica "I do not know" con 0 en las dos métricas; la columna
 `no_answer` lo marca para poder separar abstenciones de respuestas malas.
 
-Uso: `poetry run ragas_eval` o `poetry run ragas_eval --limit 2` (prueba corta).
+Uso: `poetry run ragas_eval`, `poetry run ragas_eval --limit 2` (prueba corta)
+o `poetry run ragas_eval --ids 1,2,14` (subconjunto fijo, igual en cada tamaño).
 """
 import argparse
 import json
@@ -67,6 +68,23 @@ def load_text_questions(path: Path = QUESTIONS_FILE) -> pd.DataFrame:
     """Preguntas `type = text` de eval/questions.csv, en orden de `id`."""
     questions = pd.read_csv(path)
     return questions[questions['type'] == 'text'].sort_values('id').reset_index(drop=True)
+
+
+def select_questions(questions: pd.DataFrame, ids: list[int] | None = None,
+                     limit: int | None = None) -> pd.DataFrame:
+    """Subconjunto para corridas más cortas: por `id` exactos o las primeras N.
+
+    Un `id` que no está en `questions` es un error, para no comparar en
+    silencio dos corridas con preguntas distintas.
+    """
+    if ids:
+        missing = sorted(set(ids) - set(questions['id']))
+        if missing:
+            raise ValueError(f'ids que no son preguntas de texto: {missing}')
+        questions = questions[questions['id'].isin(ids)].reset_index(drop=True)
+    if limit:
+        questions = questions.head(limit)
+    return questions
 
 
 # =============================================================================
@@ -210,14 +228,14 @@ def main(argv: list[str] | None = None) -> None:
     """Responde, califica y guarda eval/results/chunk_<size>.csv."""
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument('--limit', type=int, help='solo las primeras N preguntas (prueba corta)')
+    parser.add_argument('--ids', type=lambda v: [int(x) for x in v.split(',')],
+                        help='solo estas preguntas, por id separados por comas (ej. 1,2,14)')
     parser.add_argument('--output', type=Path, help='CSV de salida (por defecto chunk_<size>.csv)')
     args = parser.parse_args(argv)
 
     chunk_size = load_chunking_config().chunk_size
     chroma_dir = load_index_paths().chroma_dir
-    questions = load_text_questions()
-    if args.limit:
-        questions = questions.head(args.limit)
+    questions = select_questions(load_text_questions(), args.ids, args.limit)
     print(f'{len(questions)} preguntas | chunk_size={chunk_size} | {chroma_dir} | juez {JUDGE_MODEL}')
 
     def chain_factory():

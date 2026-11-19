@@ -3,6 +3,7 @@ import json
 import math
 
 import pandas as pd
+import pytest
 from langchain_core.documents import Document
 from langchain_core.runnables import RunnableLambda
 
@@ -27,6 +28,19 @@ def test_repo_has_25_text_questions():
     assert len(text) == 25
     assert set(text['type']) == {'text'}
     assert text['id'].is_monotonic_increasing
+
+
+def test_select_questions_by_ids_and_limit():
+    qs = questions(5)
+
+    assert re_.select_questions(qs)['id'].tolist() == [1, 2, 3, 4, 5]
+    assert re_.select_questions(qs, ids=[4, 2])['id'].tolist() == [2, 4]
+    assert re_.select_questions(qs, limit=2)['id'].tolist() == [1, 2]
+
+
+def test_select_questions_rejects_unknown_ids():
+    with pytest.raises(ValueError, match=r'\[9\]'):
+        re_.select_questions(questions(3), ids=[1, 9])
 
 
 def test_failed_question_is_recorded_not_dropped():

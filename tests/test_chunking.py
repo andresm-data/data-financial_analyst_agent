@@ -17,10 +17,34 @@ def write_config(tmp_path, size, overlap):
     return path
 
 
-def test_repo_config_starts_with_1000_and_150():
+def test_repo_config_uses_500_and_75():
     assert ch.load_chunking_config() == ch.ChunkingConfig(
-        1000, 150, ('\n\n', '\n', '. ', '; ', ' ', ''), min_chunk_chars=200
+        500, 75, ('\n\n', '\n', '. ', '; ', ' ', ''), min_chunk_chars=200
     )
+
+
+def test_repo_config_keeps_the_1000_index_apart():
+    paths = ch.load_index_paths()
+
+    assert paths.chroma_dir == ch.PROJECT_ROOT / 'data' / 'chroma_500'
+    assert paths.chroma_dir != ch.CHROMA_DIR
+    assert paths.chunks_file != ch.CHUNKS_FILE
+
+
+def test_index_paths_are_read_relative_to_root(tmp_path):
+    path = write_config(tmp_path, 500, 75)
+    with path.open('a', encoding='utf-8') as f:
+        f.write('index:\n  chunks_file: out/c.jsonl\n  chroma_dir: out/chroma\n')
+
+    assert ch.load_index_paths(path, root=tmp_path) == ch.IndexPaths(
+        tmp_path / 'out' / 'c.jsonl', tmp_path / 'out' / 'chroma'
+    )
+
+
+def test_index_paths_default_to_chunks_jsonl_and_data_chroma(tmp_path):
+    paths = ch.load_index_paths(write_config(tmp_path, 1000, 150))
+
+    assert paths == ch.IndexPaths(ch.CHUNKS_FILE, ch.CHROMA_DIR)
 
 
 def test_long_paragraph_is_cut_at_sentence_boundaries():

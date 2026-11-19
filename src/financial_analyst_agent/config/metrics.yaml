@@ -1,0 +1,41 @@
+# Palabras de uso cotidiano (en inglés, en minúsculas) -> valor exacto de
+# `financials.metric` en data/processed/finance.duckdb. Solo las 6 métricas de
+# la tabla; cada sinónimo apunta a una sola. Se omiten palabras ambiguas como
+# "income" (¿ingresos o utilidad?), "capital" (¿patrimonio o capital
+# regulatorio?) y "debt" (la deuda es solo una parte de los pasivos).
+# Significado y unidades de cada métrica: docs/schema.md.
+metrics:
+  Revenues:
+    - revenue
+    - revenues
+    - total revenue
+    - net revenue
+    - net revenues
+    - top line
+  NetIncomeLoss:
+    - profit
+    - net profit
+    - net income
+    - net loss
+    - earnings
+    - net earnings
+    - bottom line
+  Assets:
+    - assets
+    - total assets
+    - balance sheet size
+  Liabilities:
+    - liabilities
+    - total liabilities
+  StockholdersEquity:
+    - equity
+    - stockholders equity
+    - stockholders' equity
+    - shareholders equity
+    - shareholders' equity
+    - book value
+  Deposits:
+    - deposits
+    - total deposits
+    - customer deposits
+    - deposit base

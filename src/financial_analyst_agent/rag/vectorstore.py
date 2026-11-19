@@ -1,10 +1,12 @@
 """Colección persistente de Chroma con los chunks de los 10-K.
 
-La base de datos vive en data/chroma/ (ignorada por git) y usa los mismos
-embeddings bge-small de `financial_analyst_agent.embeddings`, así que se
-puede volver a abrir sin reindexar.
+La base de datos vive en el `chroma_dir` de config/rag.yaml (data/chroma/ por
+defecto, ignorada por git) y usa los mismos embeddings bge-small de
+`financial_analyst_agent.embeddings`, así que se puede volver a abrir sin
+reindexar. Cada tamaño de chunk tiene su carpeta: para volver a otro índice
+basta con cambiar la config.
 
-`main` indexa data/processed/chunks/chunks.jsonl en lotes de `BATCH_SIZE`.
+`main` indexa el `chunks_file` de la config en lotes de `BATCH_SIZE`.
 Es repetible: cada chunk se guarda con su `chunk_id` como ID, solo se
 embeben los chunks nuevos o cambiados y se borran los que ya no existen.
 """
@@ -18,13 +20,11 @@ from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
 
 from financial_analyst_agent.embeddings import get_embeddings
-from financial_analyst_agent.ingest.download_10k import PROJECT_ROOT
-from financial_analyst_agent.rag.chunking import CHUNKS_FILE, load_chunks
+from financial_analyst_agent.rag.chunking import load_chunks, load_index_paths
 
 logger = logging.getLogger(__name__)
 
 # =============================================================================
-CHROMA_DIR = PROJECT_ROOT / 'data' / 'chroma'
 COLLECTION_NAME = 'tenk_chunks'
 
 # Los vectores de bge-small vienen normalizados: la distancia coseno es la
@@ -47,18 +47,20 @@ class IndexStats:
 
 # =============================================================================
 def get_vectorstore(
-    persist_dir: Path = CHROMA_DIR, embeddings: Embeddings | None = None
+    persist_dir: Path | None = None, embeddings: Embeddings | None = None
 ) -> Chroma:
     """Abre la colección de Chroma en `persist_dir`, creándola si no existe.
 
     Args:
-        persist_dir (Path): Carpeta de la base de datos persistente.
+        persist_dir (Path | None): Carpeta de la base de datos persistente;
+            por defecto, el `chroma_dir` de config/rag.yaml.
         embeddings (Embeddings | None): Modelo de embeddings; por defecto,
             bge-small en CPU. Las pruebas pasan uno falso.
 
     Returns:
         Chroma: La colección lista para añadir o buscar chunks.
     """
+    persist_dir = persist_dir or load_index_paths().chroma_dir
     persist_dir.mkdir(parents=True, exist_ok=True)
 
     return Chroma(
@@ -121,21 +123,24 @@ def index_chunks(
 
 # =============================================================================
 def main() -> None:
-    """Indexa chunks.jsonl en data/chroma/ e imprime el total y el tiempo.
+    """Indexa el archivo de chunks en la carpeta de Chroma de la config.
+
+    Imprime el total, el tiempo y la carpeta, para que se vea qué índice se tocó.
 
     Raises:
-        FileNotFoundError: Si no existe chunks.jsonl.
+        FileNotFoundError: Si no existe el archivo de chunks.
     """
-    if not CHUNKS_FILE.exists():
-        raise FileNotFoundError(f'No existe {CHUNKS_FILE}; ejecuta `chunks` antes')
+    paths = load_index_paths()
+    if not paths.chunks_file.exists():
+        raise FileNotFoundError(f'No existe {paths.chunks_file}; ejecuta `chunks` antes')
 
-    chunks = load_chunks()
+    chunks = load_chunks(paths.chunks_file)
     start = time.perf_counter()
-    stats = index_chunks(get_vectorstore(), chunks)
+    stats = index_chunks(get_vectorstore(paths.chroma_dir), chunks)
     elapsed = time.perf_counter() - start
 
     print(
-        f'{stats.total} chunks en la colección {COLLECTION_NAME!r} ({CHROMA_DIR}); '
+        f'{stats.total} chunks en la colección {COLLECTION_NAME!r} ({paths.chroma_dir}); '
         f'{stats.added} añadidos, {stats.unchanged} sin cambios, '
         f'{stats.deleted} borrados en {elapsed:.1f} s'
     )

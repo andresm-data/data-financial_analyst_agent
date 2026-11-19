@@ -1,11 +1,14 @@
 """Divide el texto de las secciones de los 10-K en chunks para el RAG.
 
 El tamaño y el solapamiento de los chunks se leen de config/rag.yaml, así que
-se pueden ajustar sin tocar el código.
+se pueden ajustar sin tocar el código. De ahí salen también las rutas del
+archivo de chunks y del índice de Chroma (`load_index_paths`), para que cada
+tamaño de chunk tenga los suyos y los índices convivan.
 
 `main` lee las secciones de data/processed/sections/ (un .txt y un .json de
 metadatos por sección), las divide y guarda todos los chunks con sus
-metadatos en data/processed/chunks/chunks.jsonl.
+metadatos en el `chunks_file` de la config (data/processed/chunks/chunks.jsonl
+por defecto).
 
 Cada chunk empieza con una línea de contexto (empresa, año, sección y título
 del apartado), para que los embeddings y BM25 sepan, por ejemplo, que una
@@ -37,6 +40,7 @@ logger = logging.getLogger(__name__)
 RAG_CONFIG_FILE = PACKAGE_DIR / 'config' / 'rag.yaml'
 CHUNKS_DIR = PROCESSED_DIR / 'chunks'
 CHUNKS_FILE = CHUNKS_DIR / 'chunks.jsonl'
+CHROMA_DIR = PROJECT_ROOT / 'data' / 'chroma'
 
 # Separa los bloques de texto y tablas; el divisor corta aquí primero y lo
 # conserva en una de las partes, así que cuenta para el tamaño.
@@ -91,6 +95,30 @@ def load_chunking_config(path: Path = RAG_CONFIG_FILE) -> ChunkingConfig:
         chunk_overlap=int(chunking['chunk_overlap']),
         separators=tuple(chunking.get('separators', DEFAULT_SEPARATORS)),
         min_chunk_chars=int(chunking.get('min_chunk_chars', 0)),
+    )
+
+
+# =============================================================================
+@dataclass(frozen=True)
+class IndexPaths:
+    """Dónde se guardan los chunks y el índice de Chroma de una configuración."""
+
+    chunks_file: Path
+    chroma_dir: Path
+
+
+def load_index_paths(path: Path = RAG_CONFIG_FILE, root: Path = PROJECT_ROOT) -> IndexPaths:
+    """Lee la sección `index` de config/rag.yaml.
+
+    Las rutas son relativas a la raíz del proyecto. Si falta la sección o
+    alguna ruta, se usan data/processed/chunks/chunks.jsonl y data/chroma/.
+    """
+    with path.open(encoding='utf-8') as f:
+        index = yaml.safe_load(f).get('index') or {}
+
+    return IndexPaths(
+        chunks_file=root / index['chunks_file'] if 'chunks_file' in index else CHUNKS_FILE,
+        chroma_dir=root / index['chroma_dir'] if 'chroma_dir' in index else CHROMA_DIR,
     )
 
 
@@ -266,8 +294,12 @@ def chunk_section(
 
 
 # =============================================================================
-def save_chunks(chunks: list[Document], path: Path = CHUNKS_FILE) -> None:
-    """Guarda los chunks en JSONL: una línea con `text` y `metadata` por chunk."""
+def save_chunks(chunks: list[Document], path: Path | None = None) -> None:
+    """Guarda los chunks en JSONL: una línea con `text` y `metadata` por chunk.
+
+    Sin `path`, se usa el `chunks_file` de config/rag.yaml.
+    """
+    path = path or load_index_paths().chunks_file
     path.parent.mkdir(parents=True, exist_ok=True)
 
     with path.open('w', encoding='utf-8') as f:
@@ -279,8 +311,9 @@ def save_chunks(chunks: list[Document], path: Path = CHUNKS_FILE) -> None:
 
 
 # =============================================================================
-def load_chunks(path: Path = CHUNKS_FILE) -> list[Document]:
-    """Lee los chunks guardados por `save_chunks`."""
+def load_chunks(path: Path | None = None) -> list[Document]:
+    """Lee los chunks guardados por `save_chunks` (por defecto, el `chunks_file` de la config)."""
+    path = path or load_index_paths().chunks_file
     with path.open(encoding='utf-8') as f:
         return [
             Document(page_content=row['text'], metadata=row['metadata'])
@@ -308,7 +341,7 @@ def chunk_counts(chunks: list[Document]) -> pd.DataFrame:
 
 # =============================================================================
 def main() -> None:
-    """Divide todas las secciones, guarda chunks.jsonl e imprime el conteo.
+    """Divide todas las secciones, guarda el archivo de chunks e imprime el conteo.
 
     Raises:
         FileNotFoundError: Si no hay JSON de secciones.
@@ -319,16 +352,17 @@ def main() -> None:
         raise FileNotFoundError(f'No hay secciones en {SECTIONS_DIR}')
 
     config = load_chunking_config()
+    chunks_file = load_index_paths().chunks_file
     chunks = [
         chunk for metadata_file in metadata_files
         for chunk in chunk_section(metadata_file, config)
     ]
-    save_chunks(chunks)
+    save_chunks(chunks, chunks_file)
 
     logger.info(
         '%d secciones -> %d chunks (chunk_size=%d, chunk_overlap=%d) en %s',
         len(metadata_files), len(chunks), config.chunk_size,
-        config.chunk_overlap, CHUNKS_FILE,
+        config.chunk_overlap, chunks_file,
     )
     print(chunk_counts(chunks).to_string(index=False))
 

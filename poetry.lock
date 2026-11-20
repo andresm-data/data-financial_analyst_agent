@@ -5408,6 +5408,23 @@ pymysql = ["pymysql"]
 sqlcipher = ["sqlcipher3_binary"]
 
 [[package]]
+name = "sqlglot"
+version = "30.33.0"
+description = "An easily customizable SQL parser and transpiler"
+optional = false
+python-versions = ">=3.9"
+groups = ["main"]
+files = [
+    {file = "sqlglot-30.33.0-py3-none-any.whl", hash = "sha256:a5b279fe7397a9fb6cdd0274a13a5fcee0fa83ac6ff617083f1f2832031e90bc"},
+    {file = "sqlglot-30.33.0.tar.gz", hash = "sha256:9c007e0471c93e778d8613f25853543b959a3f793d9dadf1341b3d6bd53246a8"},
+]
+
+[package.extras]
+c = ["sqlglotc (==30.33.0) ; python_version >= \"3.10\""]
+dev = ["duckdb (>=0.6)", "mypy (>=2.4.0) ; python_version >= \"3.10\"", "mypy ; python_version < \"3.10\"", "pandas", "pandas-stubs", "pdoc", "pre-commit", "pyperf", "python-dateutil", "pytz", "ruff (==0.15.6)", "setuptools_scm (>=10.2)", "types-python-dateutil", "types-pytz", "typing_extensions"]
+rs = ["sqlglotc (==30.33.0) ; python_version >= \"3.10\"", "sqlglotrs (==0.13.0)"]
+
+[[package]]
 name = "sympy"
 version = "1.14.0"
 description = "Computer algebra system (CAS) in Python"
@@ -6714,4 +6731,4 @@ cffi = ["cffi (>=1.17,<2.0) ; platform_python_implementation != \"PyPy\" and pyt
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.14,<4.0.0"
-content-hash = "a614c30446e99b795dfbf6d4017825dac945062246045188ac30b07b410df012"
+content-hash = "72f715f7072fab9d92ff2cf9b99e105391f327e2b33de04829b96eacb7fc5bdf"

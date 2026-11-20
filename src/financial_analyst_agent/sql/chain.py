@@ -11,7 +11,7 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import Runnable, RunnableLambda
 
 from financial_analyst_agent.llm import get_llm
-from financial_analyst_agent.sql.prompt import build_sql_prompt
+from financial_analyst_agent.sql.prompt import build_sql_prompt, build_sql_repair_prompt
 
 # =============================================================================
 # Bloque ```sql ... ``` (o ``` ... ```); se queda con lo de dentro.
@@ -37,6 +37,12 @@ def build_sql_chain(llm=None) -> Runnable:
     """LCEL: {'question': ...} -> prompt -> modelo -> texto -> SQL limpio."""
     llm = llm or get_llm(temperature=0.0)
     return build_sql_prompt() | llm | StrOutputParser() | RunnableLambda(clean_sql)
+
+
+def build_sql_repair_chain(llm=None) -> Runnable:
+    """LCEL: {'question', 'sql', 'error'} -> prompt de corrección -> SQL limpio."""
+    llm = llm or get_llm(temperature=0.0)
+    return build_sql_repair_prompt() | llm | StrOutputParser() | RunnableLambda(clean_sql)
 
 
 def main() -> None:

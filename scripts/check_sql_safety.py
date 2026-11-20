@@ -8,13 +8,16 @@ que el SQL final tiene LIMIT de 100 como máximo.
 Uso: `poetry run python scripts/check_sql_safety.py` (sale con código 1 si
 algún caso no da el resultado esperado).
 """
+import logging
 import sys
 from dataclasses import dataclass
 
 import duckdb
 import sqlglot
+from langchain_core.language_models.fake_chat_models import FakeListChatModel
 
-from financial_analyst_agent.sql import db
+from financial_analyst_agent.sql import db, tool
+from financial_analyst_agent.sql.chain import build_sql_chain, build_sql_repair_chain
 from financial_analyst_agent.sql.validator import (
     DIALECT, MAX_LIMIT, SQLValidationError, limit_value, validate_sql,
 )
@@ -79,6 +82,31 @@ CONNECTION_CASES = [
     ('Conexión: CREATE sin validador', 'CREATE TABLE x (a INTEGER)', 'InvalidInputException'),
 ]
 
+# Reintentos con un modelo falso: respuestas en orden (generación y luego
+# correcciones). Esperado: (¿éxito?, intentos, filas o None si no importa).
+GOOD_SQL = 'SELECT company, COUNT(*) AS n FROM financials GROUP BY company ORDER BY company'
+RETRY_CASES = [
+    ('Reintento: 1.º mal (columna), 2.º bien', ['SELECT nope FROM financials', GOOD_SQL], (True, 2, 6)),
+    ('Reintento: 3 SQL mal -> para tras 2 reintentos',
+     ['SELECT nope FROM financials', 'SELEC company FRM financials', 'SELECT company FROM missing_table'],
+     (False, 3, 0)),
+    ('Reintento: rechazo de seguridad no se reintenta', ['DROP TABLE financials', GOOD_SQL], (False, 1, 0)),
+    ('Reintento: corrección insegura se rechaza ya', ['SELECT nope FROM financials', "SELECT * FROM read_csv('x.csv')", GOOD_SQL], (False, 2, 0)),
+    ('Reintento: 0 filas no es error', ["SELECT company FROM financials WHERE company = 'XYZ'", GOOD_SQL], (True, 1, 0)),
+]
+UNUSED = "SELECT 'respuesta de relleno: el modelo no debería llegar aquí'"
+
+
+class ListHandler(logging.Handler):
+    """Guarda los registros de los intentos para comprobarlos."""
+
+    def __init__(self):
+        super().__init__()
+        self.records: list[logging.LogRecord] = []
+
+    def emit(self, record):
+        self.records.append(record)
+
 
 # =============================================================================
 def one_line(sql: str) -> str:
@@ -111,6 +139,35 @@ def run_connection_case(sql: str, expected: str) -> tuple[str, str, bool]:
     return PASS, 'ejecutada', expected == PASS
 
 
+def run_retry_case(responses: list[str], expected: tuple[bool, int, int]) -> tuple[str, str, bool]:
+    """Pasa una pregunta inventada por la herramienta con un modelo falso."""
+    # La respuesta de relleno evita que el modelo falso vuelva a empezar la
+    # lista, así `llm.i` es exactamente el número de llamadas al modelo.
+    llm = FakeListChatModel(responses=[*responses, UNUSED])
+    handler = ListHandler()
+    tool.logger.addHandler(handler)
+    tool.logger.setLevel(logging.INFO)  # los intentos correctos se registran en INFO
+    try:
+        result = tool.answer_with_sql(
+            'How many rows does each bank have?',  # inventada, no está en eval/questions.csv
+            chain=build_sql_chain(llm), repair=build_sql_repair_chain(llm),
+        )
+    finally:
+        tool.logger.removeHandler(handler)
+
+    ok_expected, attempts_expected, rows_expected = expected
+    success = result['error'] is None
+    logged = [r.sql_attempt for r in handler.records]
+    ok = (success == ok_expected and result['attempts'] == attempts_expected == llm.i == len(logged)
+          and len(result['rows']) == rows_expected)
+    got = f"{'éxito' if success else 'error'}, {result['attempts']} intentos"
+    causes = ', '.join(f"{a['attempt']}:{a['status']}/{a['error_type'] or '-'}" for a in logged)
+    detail = f"llamadas al modelo: {llm.i}; filas: {len(result['rows'])}; log: [{causes}]"
+    if not success:
+        detail += f"; error: {result['error'].splitlines()[0]}"
+    return got, detail, ok
+
+
 def print_table(rows: list[tuple[str, str, str, str, bool]]) -> None:
     print('| # | Caso | Esperado | Obtenido | OK | Detalle |')
     print('|---|------|----------|----------|----|---------|')
@@ -126,6 +183,9 @@ def main() -> int:
         rows.append((case.name, expected, *run_validator_case(case)))
     for name, sql, expected in CONNECTION_CASES:
         rows.append((name, expected, *run_connection_case(sql, expected)))
+    for name, responses, expected in RETRY_CASES:
+        label = f"{'éxito' if expected[0] else 'error'}, {expected[1]} intentos"
+        rows.append((name, label, *run_retry_case(responses, expected)))
 
     print_table(rows)
     failed = sum(not ok for *_, ok in rows)

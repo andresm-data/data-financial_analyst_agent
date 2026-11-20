@@ -48,3 +48,24 @@
 3. Only the 1,795 chunks whose heading changed were re-embedded (~2 min instead of ~14 min).
 4. Eval: 10 correct, 1 missed, 1 wrong, 0 invented; hit@5 0.67, MRR 0.54. The "wrong" one is GS 2025 AWM risks: it quotes the same chunk as before but another bullet (market uncertainty), a real risk that lacks the expected keywords; the grader's keyword match is too strict for open questions.
 5. Pending: JPM total assets still answers "I do not know" because the $4.0 trillion chunk is not retrieved, and llama3.2:3b picks different sentences between runs, so open questions need a better grader (e.g. several accepted answers or an LLM judge).
+
+# Week 3: text-to-SQL tool
+
+## Schema, metric names and the tool
+1. `docs/schema.md` describes the only table, `financials` (660 rows: 6 banks, 6 metrics, fiscal years 2006–2025, whole US dollars), with its fallback XBRL tags, missing years, the 6 rows whose fiscal year ends on November 30 and the 2 rows with `value = 0`. `config/metrics.yaml` maps everyday words ("profit", "net income") to the 6 exact metric names.
+2. The prompt (`sql/prompt.py`) reads the schema and the metric names at run time, so they are never copied into code, and adds 3 worked examples (direct lookup, ranking, percent change). None of them is in `eval/questions.csv`.
+3. `sql/chain.py` runs prompt -> llama3.2:3b (temperature 0) -> SQL, and strips the ```` ```sql ```` fences the model often adds. `sql/tool.py` wraps it as the LangChain tool `text_to_sql`, which returns the SQL, the column names and the rows.
+4. `sql/db.py` opens `finance.duckdb` with `read_only=True` and refuses to create a missing file, so a wrong path cannot leave an empty database behind.
+
+## Safety checks, LIMIT and retries
+1. `sql/validator.py` checks the sqlglot syntax tree (dialect `duckdb`), not the text, so a string `'DROP'` or a column `last_update` passes. It accepts exactly one SELECT (CTEs allowed, a trailing `;` ignored) and rejects several statements, any other statement, UNION, empty output and text it cannot parse.
+2. DROP, DELETE, UPDATE, INSERT, ATTACH and COPY get their own message, also inside CTEs and subqueries. File-reading functions (`read_csv`, `read_parquet`, `read_json`, `read_text`, `read_blob`, `glob`, any `read_*`) and path-like table names (`FROM 'file.csv'`, which DuckDB reads straight from disk) are blocked too.
+3. The executed SQL always has `LIMIT` 100 or less: added when missing, lowered when larger (also for `LIMIT 50%` or expressions), kept when smaller. `fetchmany(100)` stays as a second cap, and the connection now also sets `enable_external_access = False`, so DuckDB itself refuses `read_csv`, COPY and ATTACH even without the validator.
+4. When DuckDB fails (or the SQL cannot be parsed), the question, the failed SQL and the error go back to the model for a corrected query, which is validated again: at most 2 retries (3 attempts). Security rejections and empty results (0 rows) are returned at once. Every attempt is logged (`financial_analyst_agent.sql.tool`, with `attempt`, `status`, `error_type` and `sql`) so failures can be grouped by cause; successful attempts are logged at INFO, so enable INFO to see them.
+5. `poetry run python scripts/check_sql_safety.py` runs 40 invented cases (safe and dangerous queries, LIMIT rules, the connection without the validator, and retries with `FakeListChatModel`): 40/40 pass. The database checksum was the same before and after.
+
+## Run on the 5 test questions (2026-11-20)
+1. 4 of 5 answered on the first attempt: GS 2021 net income $21.635B, lowest 2022 liabilities TFC $494.7B, TFC assets +13.16% from 2019 to 2023, BAC 2014 equity-to-assets 0.1157. The 5 questions took ~3.7 min on CPU.
+2. Failure: "Which had more total deposits in fiscal year 2017, JPMorgan Chase or Citigroup, and by how much?" failed twice with the same `BinderException` (a column alias used next to scalar subqueries), so the corrected query repeated the mistake. On the third attempt the model switched to `UNION ALL`, which the validator rejects, so the tool returned an error and no figures.
+3. Pending: the repair prompt has the rules and the schema but not the 3 worked examples; adding the `MAX(CASE WHEN ...)` example could steer corrections away from scalar subqueries. Also decide whether to allow `UNION ALL` (today any UNION is rejected).
+4. Pending: measure SQL accuracy on the 15 figure questions of `eval/questions.csv` (they were not used for tuning) and group the logged errors by `error_type`.

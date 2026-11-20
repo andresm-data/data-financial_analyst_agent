@@ -61,6 +61,17 @@ Use exactly one of these values in `metric`. Everyday words map to them like thi
 4. Return the raw `value` in US dollars; give every computed column a clear alias.
 5. Reply with the SQL only: no explanation, no comments, no markdown."""
 
+REPAIR_REQUEST = """Question: {question}
+
+This SQL query failed:
+{sql}
+
+Error message:
+{error}
+
+Write a corrected DuckDB SELECT query that answers the question. Follow the
+rules above and reply with the SQL only."""
+
 
 # =============================================================================
 @cache
@@ -94,3 +105,13 @@ def build_sql_prompt() -> ChatPromptTemplate:
     return ChatPromptTemplate.from_messages(messages).partial(
         schema=load_schema(), metrics=format_metrics(load_metric_names()),
     )
+
+
+def build_sql_repair_prompt() -> ChatPromptTemplate:
+    """Prompt para corregir un SQL que falló; espera `{question}`, `{sql}` y `{error}`.
+
+    Lleva las mismas reglas, esquema y métricas que `build_sql_prompt`.
+    """
+    return ChatPromptTemplate.from_messages(
+        [('system', SYSTEM_RULES), ('human', REPAIR_REQUEST)],
+    ).partial(schema=load_schema(), metrics=format_metrics(load_metric_names()))

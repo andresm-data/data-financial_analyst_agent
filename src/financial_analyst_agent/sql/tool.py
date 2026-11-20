@@ -1,8 +1,13 @@
 """Herramienta de LangChain: pregunta -> SQL generado -> filas de DuckDB.
 
-La única red de seguridad por ahora es la conexión de solo lectura
-(`sql/db.py`): DuckDB rechaza cualquier escritura. Aún no hay validación del
-SQL, LIMIT automático ni reintentos; si la consulta falla se devuelve el error.
+Barreras, de fuera hacia dentro:
+1. `sql/validator.py` revisa el árbol de sqlglot: un único SELECT, sin
+   comandos ni funciones prohibidos, y con LIMIT de 100 como máximo. Lo que se
+   ejecuta y se devuelve es ese SQL validado.
+2. `fetchmany(MAX_ROWS)`: nunca se leen más de 100 filas.
+3. La conexión de `sql/db.py`: solo lectura y sin acceso a otros archivos.
+
+Aún no hay reintentos; si la consulta falla se devuelve el error.
 
 Uso: `poetry run python -m financial_analyst_agent.sql.tool` (5 preguntas de
 prueba, ninguna de `eval/questions.csv`).
@@ -16,9 +21,10 @@ from langchain_core.tools import tool
 
 from financial_analyst_agent.sql import db
 from financial_analyst_agent.sql.chain import build_sql_chain
+from financial_analyst_agent.sql.validator import MAX_LIMIT, SQLValidationError, validate_sql
 
 # =============================================================================
-MAX_ROWS = 100  # límite provisional hasta tener el LIMIT automático
+MAX_ROWS = MAX_LIMIT  # segunda barrera detrás del LIMIT del validador
 
 TEST_QUESTIONS = [
     "What was Goldman Sachs' net income in fiscal year 2021?",
@@ -36,11 +42,17 @@ def sql_chain() -> Runnable:
     return build_sql_chain()
 
 
+def error_result(sql: str, error: str) -> dict[str, Any]:
+    """Resultado sin filas con el mensaje de error."""
+    return {'sql': sql, 'columns': [], 'rows': [], 'error': error}
+
+
 def run_sql(sql: str, connect=db.connect) -> dict[str, Any]:
     """Ejecuta el SQL en solo lectura y devuelve hasta MAX_ROWS filas.
 
-    Cada fila es un dict columna -> valor. Si DuckDB rechaza la consulta, se
-    devuelve su mensaje en `error` y ninguna fila.
+    No valida: recibe SQL que ya pasó por `validate_sql`. Cada fila es un dict
+    columna -> valor. Si DuckDB rechaza la consulta, se devuelve su mensaje en
+    `error` y ninguna fila.
     """
     try:
         with connect() as con:
@@ -48,17 +60,23 @@ def run_sql(sql: str, connect=db.connect) -> dict[str, Any]:
             columns = [col[0] for col in cursor.description or []]
             rows = cursor.fetchmany(MAX_ROWS) if columns else []
     except duckdb.Error as exc:
-        return {'sql': sql, 'columns': [], 'rows': [],
-                'error': f'{type(exc).__name__}: {exc}'}
+        return error_result(sql, f'{type(exc).__name__}: {exc}')
 
     return {'sql': sql, 'columns': columns,
             'rows': [dict(zip(columns, row)) for row in rows], 'error': None}
 
 
 def answer_with_sql(question: str, chain: Runnable | None = None, connect=db.connect) -> dict[str, Any]:
-    """Genera el SQL de la pregunta con la cadena y lo ejecuta."""
+    """Genera el SQL de la pregunta, lo valida y ejecuta el SQL validado.
+
+    Si el validador lo rechaza, no se ejecuta nada y se devuelve el motivo.
+    """
     sql = (chain or sql_chain()).invoke({'question': question})
-    return run_sql(sql, connect)
+    try:
+        safe_sql = validate_sql(sql)
+    except SQLValidationError as exc:
+        return error_result(sql, f'{type(exc).__name__}: {exc}')
+    return run_sql(safe_sql, connect)
 
 
 @tool
@@ -67,9 +85,10 @@ def text_to_sql(question: str) -> dict[str, Any]:
     liabilities, stockholders' equity, deposits) of BAC, C, GS, JPM, MS and TFC
     from their 10-K filings, fiscal years 2006-2025.
 
-    Writes a DuckDB SELECT query, runs it read-only and returns the SQL, the
-    column names and up to 100 rows. All amounts are in US dollars. If the
-    query fails, `error` holds the database message and `rows` is empty.
+    Writes a DuckDB SELECT query, checks it is a single safe SELECT, caps it
+    at LIMIT 100, runs it read-only and returns the executed SQL, the column
+    names and the rows. All amounts are in US dollars. If the query is
+    rejected or fails, `error` holds the reason and `rows` is empty.
     """
     return answer_with_sql(question)
 

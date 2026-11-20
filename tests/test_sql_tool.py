@@ -49,7 +49,7 @@ def test_answer_with_sql_runs_generated_query(connect):
 
     result = tool.answer_with_sql('How many rows?', chain, connect)
 
-    assert result['sql'] == 'SELECT count(*) AS n FROM financials'
+    assert result['sql'] == 'SELECT\n  COUNT(*) AS n\nFROM financials\nLIMIT 100'
     assert result['rows'] == [{'n': 150}]
 
 

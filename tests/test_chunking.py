@@ -17,18 +17,14 @@ def write_config(tmp_path, size, overlap):
     return path
 
 
-def test_repo_config_uses_500_and_75():
+def test_repo_config_uses_reference_1000_and_150():
     assert ch.load_chunking_config() == ch.ChunkingConfig(
-        500, 75, ('\n\n', '\n', '. ', '; ', ' ', ''), min_chunk_chars=200
+        1000, 150, ('\n\n', '\n', '. ', '; ', ' ', ''), min_chunk_chars=200
     )
 
 
-def test_repo_config_keeps_the_1000_index_apart():
-    paths = ch.load_index_paths()
-
-    assert paths.chroma_dir == ch.PROJECT_ROOT / 'data' / 'chroma_500'
-    assert paths.chroma_dir != ch.CHROMA_DIR
-    assert paths.chunks_file != ch.CHUNKS_FILE
+def test_repo_config_uses_the_1000_index():
+    assert ch.load_index_paths() == ch.IndexPaths(ch.CHUNKS_FILE, ch.CHROMA_DIR)
 
 
 def test_index_paths_are_read_relative_to_root(tmp_path):

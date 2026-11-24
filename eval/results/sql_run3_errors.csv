@@ -1,0 +1,6 @@
+id,cause,secondary_cause,explanation
+29,other,,"Regression (right in sql_run1 and sql_run2). Ranking logic dropped: no ORDER BY value ASC and no LIMIT 1, so it returns all 6 banks (6 rows vs 1). Metric, year and units are right."
+33,wrong units,,"Now reads both Deposits and Assets (the wrong column of sql_run1/2 is gone), but divides by 1e9 inside the ratio: (deposits / 1e9) / assets / 1e9 * 100 = 5.9e-17, expected 59.2 percent."
+34,other,,"Regression. Percent change computed as (2025 - 2022) * 100 in USD bn, not divided by the 2022 value; and the joins require fiscal_year equal to both 2022 and 2025, so 0 rows. Reference: 100 * (y1 - y0) / y0 with a self-join on company and metric."
+36,wrong year,other,"Regression. No filter on fiscal years 2024 and 2025: joins every year with the next one and returns 100 rows (LIMIT) instead of 1. Also percent change computed as (new - old) * 100 in USD bn, not divided by the old value."
+37,other,,"No self-join between 2015 and 2025: both assets columns are the same value of the same row, so pct_change = 0.0 for 12 rows (6 banks x 2 years), and no ORDER BY / LIMIT 1. Reference: self-join on company and metric, ORDER BY growth DESC LIMIT 1."

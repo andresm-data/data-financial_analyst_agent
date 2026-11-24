@@ -8,9 +8,12 @@ Comparison rule (fixed before looking at sql_run1, approved 2026-11-24):
 2. An answer is correct when all of these hold:
    - the tool returned no error;
    - it returned the same number of rows as the reference query;
-   - the set of banks found in its cells equals the set of expected banks
-     (a cell is a bank if, stripped and case-insensitive, it is a ticker or a
-     bank name from docs/schema.md);
+   - if the expected answer names banks (ids 26-29, 31, 32, 37), the set of
+     banks found in its cells equals that set (a cell is a bank if, stripped
+     and case-insensitive, it is a ticker or a bank name from docs/schema.md).
+     When no bank is expected (e.g. "What were Truist's deposits?"), a
+     `company` column that repeats the filtered bank is not penalized
+     (correction approved 2026-11-24, after sql_run2; sql_run1 unchanged);
    - every expected number matches at least one numeric cell, with a relative
      difference <= 1% (absolute difference <= 0.01 if the expected value is 0).
    Extra columns (e.g. intermediate values) are allowed.
@@ -121,7 +124,7 @@ def is_correct(record: dict, expected: dict) -> bool:
         return False
     cells = [v for row in rows for v in row.values()]
     banks = {b for b in map(as_bank, cells) if b}
-    if banks != expected["banks"]:
+    if expected["banks"] and banks != expected["banks"]:
         return False
     got = [n for n in map(as_number, cells) if n is not None]
     return all(any(numbers_match(e, g) for g in got) for e in expected["numbers"])

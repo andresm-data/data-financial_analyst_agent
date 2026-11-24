@@ -75,6 +75,8 @@ Use exactly one of these values in `metric`. Everyday words map to them like thi
 3. Filter `company` by ticker and `metric` by its exact name from the list above.
 4. Report money amounts in USD billions: divide `value` by 1e9 and end the alias in `_usd_bn`.
    Report ratios and changes in percent (multiply by 100). Do not round.
+   Compute ratios and percent changes on the raw `value`: `100 * (new - old) / old` and
+   `100 * a / b`. Divide by 1e9 only the amounts you return.
    Give every computed column a clear alias.
 5. Reply with the SQL only: no explanation, no comments, no markdown."""
 

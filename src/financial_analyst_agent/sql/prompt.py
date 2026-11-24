@@ -22,13 +22,13 @@ METRICS_FILE = PACKAGE_DIR / 'config' / 'metrics.yaml'
 EXAMPLES = [
     (
         "What were Morgan Stanley's total liabilities at the end of fiscal year 2021?",
-        """SELECT company, fiscal_year, value AS liabilities_usd
+        """SELECT company, fiscal_year, value / 1e9 AS liabilities_usd_bn
 FROM financials
 WHERE company = 'MS' AND metric = 'Liabilities' AND fiscal_year = 2021""",
     ),
     (
         'Which bank had the highest net income in fiscal year 2018?',
-        """SELECT company, value AS net_income_usd
+        """SELECT company, value / 1e9 AS net_income_usd_bn
 FROM financials
 WHERE metric = 'NetIncomeLoss' AND fiscal_year = 2018
 ORDER BY value DESC
@@ -37,8 +37,8 @@ LIMIT 1""",
     (
         "By what percent did Citigroup's total deposits change from fiscal year 2016 to 2019?",
         """SELECT
-    MAX(CASE WHEN fiscal_year = 2016 THEN value END) AS deposits_2016_usd,
-    MAX(CASE WHEN fiscal_year = 2019 THEN value END) AS deposits_2019_usd,
+    MAX(CASE WHEN fiscal_year = 2016 THEN value END) / 1e9 AS deposits_2016_usd_bn,
+    MAX(CASE WHEN fiscal_year = 2019 THEN value END) / 1e9 AS deposits_2019_usd_bn,
     (MAX(CASE WHEN fiscal_year = 2019 THEN value END)
      / MAX(CASE WHEN fiscal_year = 2016 THEN value END) - 1) * 100 AS pct_change
 FROM financials
@@ -58,7 +58,9 @@ Use exactly one of these values in `metric`. Everyday words map to them like thi
 1. Write exactly ONE SQL query, and it must be a SELECT statement.
 2. Use only the table and columns described above.
 3. Filter `company` by ticker and `metric` by its exact name from the list above.
-4. Return the raw `value` in US dollars; give every computed column a clear alias.
+4. Report money amounts in USD billions: divide `value` by 1e9 and end the alias in `_usd_bn`.
+   Report ratios and changes in percent (multiply by 100). Do not round.
+   Give every computed column a clear alias.
 5. Reply with the SQL only: no explanation, no comments, no markdown."""
 
 REPAIR_REQUEST = """Question: {question}

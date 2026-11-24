@@ -151,8 +151,8 @@ def text_to_sql(question: str) -> dict[str, Any]:
 
     Writes a DuckDB SELECT query, checks it is a single safe SELECT, caps it
     at LIMIT 100, runs it read-only and returns the executed SQL, the column
-    names and the rows. All amounts are in US dollars. A query that fails is
-    corrected and retried up to 2 times. If it is rejected as unsafe or still
+    names and the rows. Amounts are in USD billions and ratios or changes in
+    percent. A query that fails is corrected and retried up to 2 times. If it is rejected as unsafe or still
     fails, `error` holds the reason and `rows` is empty; never guess figures.
     """
     return answer_with_sql(question)

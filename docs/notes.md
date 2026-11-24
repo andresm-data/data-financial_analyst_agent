@@ -98,7 +98,7 @@ After sql_run2, ids 38–40 returned the right value in USD bn but were marked w
 1. sql_run2 is measured on the same 15 questions used to diagnose the errors, so the improvement may be somewhat inflated, even though no eval question, answer or figure went into the prompt.
 2. The comparison rule was corrected after seeing sql_run2. The fix only affects questions with no expected bank, and it does not change sql_run1.
 3. With 15 questions, one question is 6.7 points; one run per configuration at temperature 0 does not show run-to-run variance.
-4. Proposed held-out questions to check the change without that bias (not used for tuning; all have data in `finance.duckdb`; expected answers still to be written by hand):
+4. Proposed control questions to check the change without that bias (not used for tuning, not in `eval/questions.csv`; hand-written SQL in `eval/control_questions.sql`, each returns 1 row; to be added to the eval set only after approval):
    - What were Goldman Sachs' total liabilities at the end of fiscal year 2022?
    - Which had higher stockholders' equity in fiscal year 2021, Bank of America or Citigroup, and by how much?
    - What percentage of JPMorgan Chase's total assets were liabilities in fiscal year 2020?

@@ -3,8 +3,9 @@
 El esquema y los nombres de métricas no se copian aquí: se leen al ejecutar de
 `docs/schema.md` y `config/metrics.yaml`, que son la única fuente de verdad.
 
-Los 3 ejemplos se ejecutaron sobre `finance.duckdb` y devuelven filas. No son
-preguntas de `eval/questions.csv`, para no inflar la medición de precisión.
+Los 4 ejemplos se ejecutaron sobre `finance.duckdb` y devuelven filas. No son
+preguntas de `eval/questions.csv` ni de `eval/control_questions.sql`, para no
+inflar la medición de precisión.
 """
 from functools import cache
 from pathlib import Path
@@ -18,7 +19,8 @@ from financial_analyst_agent.ingest.download_10k import PACKAGE_DIR, PROJECT_ROO
 SCHEMA_FILE = PROJECT_ROOT / 'docs' / 'schema.md'
 METRICS_FILE = PACKAGE_DIR / 'config' / 'metrics.yaml'
 
-# (pregunta, SQL) de ejemplo: consulta directa, ranking y variación porcentual.
+# (pregunta, SQL) de ejemplo: consulta directa, ranking, variación porcentual y
+# comparación de dos bancos (cuál es mayor y por cuánto).
 EXAMPLES = [
     (
         "What were Morgan Stanley's total liabilities at the end of fiscal year 2021?",
@@ -43,6 +45,19 @@ LIMIT 1""",
      / MAX(CASE WHEN fiscal_year = 2016 THEN value END) - 1) * 100 AS pct_change
 FROM financials
 WHERE company = 'C' AND metric = 'Deposits' AND fiscal_year IN (2016, 2019)""",
+    ),
+    (
+        'Which had larger total liabilities in fiscal year 2019, Truist Financial or Goldman Sachs, and by how much?',
+        """SELECT
+    tfc.value / 1e9 AS tfc_liabilities_usd_bn,
+    gs.value / 1e9 AS gs_liabilities_usd_bn,
+    CASE WHEN tfc.value > gs.value THEN 'TFC' ELSE 'GS' END AS higher,
+    ABS(tfc.value - gs.value) / 1e9 AS difference_usd_bn
+FROM financials AS tfc
+JOIN financials AS gs
+  ON gs.metric = tfc.metric AND gs.fiscal_year = tfc.fiscal_year
+WHERE tfc.company = 'TFC' AND gs.company = 'GS'
+  AND tfc.metric = 'Liabilities' AND tfc.fiscal_year = 2019""",
     ),
 ]
 

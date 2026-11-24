@@ -91,6 +91,13 @@
 5. The units rule half-worked: simple lookups follow it, but in arithmetic expressions the 3B model applies `/ 1e9` inconsistently.
 6. Errors of sql_run2 by cause (`eval/results/sql_run2_errors.csv`): other 3 (31 and 32 do not name the higher bank; 37 aggregates all banks after a failed `GROUP BY`), wrong units 2 (30, 35), wrong column 1 (33). The biggest group is now "which is higher" (31, 32).
 
+## Second iteration (sql_run3)
+1. One change on top of sql_run2, approved (commit `184b6ec`): a 4th invented worked example, "Which had larger total liabilities in fiscal year 2019, Truist Financial or Goldman Sachs, and by how much?", whose SQL self-joins the two banks and returns `higher` and `ABS(...) / 1e9`. It is not in `eval/questions.csv` nor in `eval/control_questions.sql`, and it returns 1 row. `check_sql_safety.py` 40/40, tests 219/219.
+2. sql_run3 (same questions, model, temperature 0, validator, runner and comparator): **10/15 (66.7%)**, +1 net over sql_run2. The goal of 12/15 (80%) was **not** reached.
+3. Wrong -> right: 31 and 32 (now name the higher bank with the absolute difference, the target of the change), and 30 and 35 (the self-join style also fixed their units). Right -> wrong: 29 (ranking without ORDER BY / LIMIT 1), 34 and 36 (percent change written as `(new - old) * 100` with no division by the old value, and 36 has no year filter). 33 now reads Assets but divides by 1e9 inside the ratio; 37 is still wrong.
+4. Errors by cause (`eval/results/sql_run3_errors.csv`): other 3 (29, 34, 37), wrong units 1 (33), wrong year 1 (36). Three of the five (33, 34, 36) put `/ 1e9` inside a ratio or percent change; 37 also needs a percent change.
+5. Lesson: llama3.2:3b copies the shape of the newest example to other question types (the self-join spread to percent changes) and a longer prompt changed an unrelated ranking question (29). Each example fixes its pattern and can break others, so gains on 15 questions are fragile.
+
 ## Comparison rule fix
 After sql_run2, ids 38–40 returned the right value in USD bn but were marked wrong because the bank-set check also ran when no bank is expected, and the model repeated the filtered `company` column. With approval, the bank set is now compared only when the expected answer names a bank (commit `6cd6578`). sql_run1 scores 7/15 under both versions (its CSV is byte-identical); sql_run2 goes from 6/15 to 9/15.
 
@@ -106,6 +113,6 @@ After sql_run2, ids 38–40 returned the right value in USD bn but were marked w
    - Which bank had the smallest percentage growth in total deposits between fiscal years 2016 and 2024?
 
 ## Pending (next iteration)
-1. Add one invented worked example for "which was higher, and by how much?" that returns the higher bank and `ABS(...)` (targets 31 and 32; with no regressions it would reach 11/15).
-2. Make the unit conversion consistent inside arithmetic (30, 35) and check whether 37 regressed because of the change or because of run-to-run instability.
-3. Fix the ratio of two metrics (33), e.g. with an invented example that joins two metrics of the same bank.
+1. Proposed next single change: a prompt rule that ratios and percent changes are computed on the raw `value` (`100 * (new - old) / old`, `100 * a / b`), dividing by 1e9 only the amounts that are returned. Targets 33, 34 and 36 (and helps 37).
+2. Restore the ranking pattern (29) and the two-year growth ranking (37) without new regressions.
+3. Run the 5 control questions (`eval/control_questions.sql`) on the final prompt to see whether the changes generalize.

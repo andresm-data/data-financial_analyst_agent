@@ -3,7 +3,7 @@
 El esquema y los nombres de métricas no se copian aquí: se leen al ejecutar de
 `docs/schema.md` y `config/metrics.yaml`, que son la única fuente de verdad.
 
-Los 4 ejemplos se ejecutaron sobre `finance.duckdb` y devuelven filas. No son
+Los 5 ejemplos se ejecutaron sobre `finance.duckdb` y devuelven filas. No son
 preguntas de `eval/questions.csv` ni de `eval/control_questions.sql`, para no
 inflar la medición de precisión.
 """
@@ -19,8 +19,9 @@ from financial_analyst_agent.ingest.download_10k import PACKAGE_DIR, PROJECT_ROO
 SCHEMA_FILE = PROJECT_ROOT / 'docs' / 'schema.md'
 METRICS_FILE = PACKAGE_DIR / 'config' / 'metrics.yaml'
 
-# (pregunta, SQL) de ejemplo: consulta directa, ranking, variación porcentual y
-# comparación de dos bancos (cuál es mayor y por cuánto).
+# (pregunta, SQL) de ejemplo: consulta directa, ranking, variación porcentual,
+# comparación de dos bancos (cuál es mayor y por cuánto) y cambio de un banco
+# entre dos años (autounión por company y metric).
 EXAMPLES = [
     (
         "What were Morgan Stanley's total liabilities at the end of fiscal year 2021?",
@@ -58,6 +59,19 @@ JOIN financials AS gs
   ON gs.metric = tfc.metric AND gs.fiscal_year = tfc.fiscal_year
 WHERE tfc.company = 'TFC' AND gs.company = 'GS'
   AND tfc.metric = 'Liabilities' AND tfc.fiscal_year = 2019""",
+    ),
+    (
+        "How much did Bank of America's total liabilities change from fiscal year 2012 to 2017, in US dollars and in percent?",
+        """SELECT
+    y0.value / 1e9 AS liabilities_2012_usd_bn,
+    y1.value / 1e9 AS liabilities_2017_usd_bn,
+    (y1.value - y0.value) / 1e9 AS change_usd_bn,
+    100 * (y1.value - y0.value) / y0.value AS pct_change
+FROM financials AS y0
+JOIN financials AS y1
+  ON y1.company = y0.company AND y1.metric = y0.metric
+WHERE y0.company = 'BAC' AND y0.metric = 'Liabilities'
+  AND y0.fiscal_year = 2012 AND y1.fiscal_year = 2017""",
     ),
 ]
 

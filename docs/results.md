@@ -33,5 +33,6 @@ Comparison rule (fixed before looking at the answers): the expected values are t
 | sql_run1 | llama3.2:3b | 0 | 2026-11-24 | `17da7be` | 7 | 46.7% |
 | sql_run2 | llama3.2:3b | 0 | 2026-11-24 | `35af844` | 9 | 60.0% |
 | sql_run3 | llama3.2:3b | 0 | 2026-11-24 | `184b6ec` | 10 | 66.7% |
+| sql_run4 | llama3.2:3b | 0 | 2026-11-24 | `5cd4280` | 12 | 80.0% |
 
-sql_run2 only changes the prompt (commit `35af844`): amounts in USD billions (`value / 1e9`, alias `_usd_bn`) and ratios in percent, also in the 3 worked examples. sql_run3 adds one change on top of sql_run2 (commit `184b6ec`): a 4th invented worked example (Truist vs Goldman Sachs liabilities, 2019) that returns the higher bank and the absolute difference. The goal of 12/15 (80%) was not reached. Error causes per run: `eval/results/<run>_errors.csv`.
+sql_run2 only changes the prompt (commit `35af844`): amounts in USD billions (`value / 1e9`, alias `_usd_bn`) and ratios in percent, also in the 3 worked examples. sql_run3 adds one change on top of sql_run2 (commit `184b6ec`): a 4th invented worked example (Truist vs Goldman Sachs liabilities, 2019) that returns the higher bank and the absolute difference. sql_run4 adds one more change (commit `5cd4280`): a prompt rule to compute ratios and percent changes on the raw `value` and divide by 1e9 only the returned amounts. sql_run4 reaches the goal of 12/15 (80%), but on the same 15 questions used to diagnose and tune 3 successive changes, so it is an optimistic estimate (see `docs/notes.md`, week 4). Error causes per run: `eval/results/<run>_errors.csv`.

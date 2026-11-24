@@ -110,6 +110,12 @@
 3. Percent change between two years is still the weakest pattern (34, 36, 37 all fail it), even with the formula in the rules.
 4. Before trusting the result: write the expected answers of the 5 control questions (`eval/control_questions.sql`, never used for tuning), score the final prompt on them, and run sql_run4 again to check it is stable.
 
+## Control questions (control_run4)
+1. With approval, the 5 control questions were added to `eval/questions.csv` as ids 41–45 with `type = control`, so the 15 `figure` questions and the 25 `text` ones did not change and sql_run1–4 still score the same. Their hand-written SQL is in `eval/control_questions.sql`, the key columns were fixed in `eval/compare_sql.py` before running them, and the runner takes `--type control`.
+2. The final prompt (sql_run4) on the control questions: **2/5 (40.0%)**, against 12/15 (80.0%) on the 15 tuning questions.
+3. Right: 41 (direct lookup) and 42 ("which is higher", the pattern of the newest example). Wrong (`eval/results/control_run4_errors.csv`): 43 wrong column (never reads Assets, like 33), 44 wrong year (joins each year with the next one instead of 2018 with 2022, and whole USD), 45 other (no self-join between the two years, like 37).
+4. Conclusion: the 80% does not generalize. The prompt learned the patterns that have a worked example (lookup, ranking, "which is higher") but not the ones without one: a ratio of two metrics, a change between two years and a growth ranking. The 15 questions overstate the real accuracy, as the caveat warned.
+
 ## Comparison rule fix
 After sql_run2, ids 38–40 returned the right value in USD bn but were marked wrong because the bank-set check also ran when no bank is expected, and the model repeated the filtered `company` column. With approval, the bank set is now compared only when the expected answer names a bank (commit `6cd6578`). sql_run1 scores 7/15 under both versions (its CSV is byte-identical); sql_run2 goes from 6/15 to 9/15.
 
@@ -125,6 +131,5 @@ After sql_run2, ids 38–40 returned the right value in USD bn but were marked w
    - Which bank had the smallest percentage growth in total deposits between fiscal years 2016 and 2024?
 
 ## Pending
-1. Score the final prompt on the 5 control questions (`eval/control_questions.sql`); adding them to the eval set needs approval.
-2. Percent change between two years (34, 36, 37): the formula in the rules is ignored. A candidate next change is an invented worked example of a two-year percent change of one bank that also filters `metric`, checked on the control questions, not only on the 15.
+1. Two-year comparisons and ratios of two metrics fail on both sets (34, 36, 37; 43, 44, 45). A candidate next change is an invented worked example that self-joins one bank's two years (or two metrics) on `company` and `metric`, judged on both the 15 and the 5 control questions. Once the control questions influence a change they stop being held out, so a new held-out set would be needed after that.
 3. The tool returns rows as dicts, so two columns with the same alias overwrite each other (seen in 31 of sql_run2).

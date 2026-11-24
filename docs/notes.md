@@ -69,3 +69,42 @@
 2. Failure: "Which had more total deposits in fiscal year 2017, JPMorgan Chase or Citigroup, and by how much?" failed twice with the same `BinderException` (a column alias used next to scalar subqueries), so the corrected query repeated the mistake. On the third attempt the model switched to `UNION ALL`, which the validator rejects, so the tool returned an error and no figures.
 3. Pending: the repair prompt has the rules and the schema but not the 3 worked examples; adding the `MAX(CASE WHEN ...)` example could steer corrections away from scalar subqueries. Also decide whether to allow `UNION ALL` (today any UNION is rejected).
 4. Pending: measure SQL accuracy on the 15 figure questions of `eval/questions.csv` (they were not used for tuning) and group the logged errors by `error_type`.
+
+# Week 4: SQL accuracy on the 15 figure questions
+
+## Measurement (sql_run1)
+1. `eval/run_sql_eval.py <run>` runs the tool on the 15 figure questions (ids 26–40) and saves SQL, rows, error, attempts and time per question to `eval/results/<run>_raw.jsonl`; `eval/compare_sql.py <run>` scores it into `eval/results/<run>.csv`.
+2. The expected values are the key columns of the hand-written queries in `eval/figure_questions.sql`, run read-only (not parsed from the CSV text). Numbers must be within 1%, banks must match as a set, and units are not normalized. The rule was fixed before looking at the answers.
+3. sql_run1 (commit `17da7be`): **7/15 (46.7%)**. All 15 ran on the first attempt with no error; the 5 "which bank" questions and the 2 percent changes were right.
+
+## Errors by cause (`eval/results/sql_run1_errors.csv`)
+1. **wrong units: 5** (30, 35, 38, 39, 40). Right metric, year and logic, but the prompt asked for raw `value` in whole USD and the expected answers are in USD billions.
+2. **other: 2** (31, 32). "Which was higher, and by how much?": the SQL returned both values and a signed difference but never said which bank was higher (the reference returns `higher` and `ABS(...)`).
+3. **wrong column: 1** (33). Divided deposits by deposits (`pct_deposits = 1.0`) and never read `Assets`.
+4. wrong year 0, bad SQL 0. Counting secondary causes, units appear in all 8 wrong answers.
+
+## Change and sql_run2
+1. One change, to the biggest group (commit `35af844`): prompt rule 4 now asks for amounts in USD billions (`value / 1e9`, alias ending in `_usd_bn`) and ratios in percent, without rounding; the 3 worked examples (none from the eval set) were updated to follow it, and the tool description says the same. `check_sql_safety.py` 40/40, tests 218/218.
+2. sql_run2 (same questions, model, temperature 0, validator, runner and comparator): **9/15 (60.0%)**, +2 net. The goal of 12/15 (80%) was **not** reached.
+3. Wrong -> right: 38, 39, 40 (units fixed). Right -> wrong: 37 (the new SQL failed with a `GROUP BY` error; the retry used `ANY_VALUE(company)` and an absolute difference instead of a percent, and answered JPM instead of TFC).
+4. Still wrong, with a new failure: 30 divided by 1e9 and then multiplied back by 1e9; 35 used the `_usd_bn` alias without dividing; 31 and 32 now give the right difference in USD bn but still do not name the higher bank; 33 still ignores `Assets` and now returns `null`.
+5. The units rule half-worked: simple lookups follow it, but in arithmetic expressions the 3B model applies `/ 1e9` inconsistently.
+
+## Comparison rule fix
+After sql_run2, ids 38–40 returned the right value in USD bn but were marked wrong because the bank-set check also ran when no bank is expected, and the model repeated the filtered `company` column. With approval, the bank set is now compared only when the expected answer names a bank (commit "fix(eval): compare the set of banks only when ..."). sql_run1 scores 7/15 under both versions (its CSV is byte-identical); sql_run2 goes from 6/15 to 9/15.
+
+## Caveats
+1. sql_run2 is measured on the same 15 questions used to diagnose the errors, so the improvement may be somewhat inflated, even though no eval question, answer or figure went into the prompt.
+2. The comparison rule was corrected after seeing sql_run2. The fix only affects questions with no expected bank, and it does not change sql_run1.
+3. With 15 questions, one question is 6.7 points; one run per configuration at temperature 0 does not show run-to-run variance.
+4. Proposed held-out questions to check the change without that bias (not used for tuning; all have data in `finance.duckdb`; expected answers still to be written by hand):
+   - What were Goldman Sachs' total liabilities at the end of fiscal year 2022?
+   - Which had higher stockholders' equity in fiscal year 2021, Bank of America or Citigroup, and by how much?
+   - What percentage of JPMorgan Chase's total assets were liabilities in fiscal year 2020?
+   - By how many US dollars did Morgan Stanley's total assets change from fiscal year 2018 to 2022?
+   - Which bank had the smallest percentage growth in total deposits between fiscal years 2016 and 2024?
+
+## Pending (next iteration)
+1. Add one invented worked example for "which was higher, and by how much?" that returns the higher bank and `ABS(...)` (targets 31 and 32; with no regressions it would reach 11/15).
+2. Make the unit conversion consistent inside arithmetic (30, 35) and check whether 37 regressed because of the change or because of run-to-run instability.
+3. Fix the ratio of two metrics (33), e.g. with an invented example that joins two metrics of the same bank.

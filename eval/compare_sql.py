@@ -3,7 +3,8 @@
 Comparison rule (fixed before looking at sql_run1, approved 2026-11-24):
 
 1. The expected values are the key columns (KEY_COLUMNS) of the result of the
-   reference query for each id, run read-only. They are not parsed from the
+   reference query for each id, run read-only (eval/figure_questions.sql, or
+   eval/control_questions.sql for a run of the control questions). They are not parsed from the
    free text of questions.csv.
 2. An answer is correct when all of these hold:
    - the tool returned no error;
@@ -35,6 +36,7 @@ import duckdb
 ROOT = Path(__file__).resolve().parent.parent
 DB_PATH = ROOT / "data" / "processed" / "finance.duckdb"
 SQL_PATH = ROOT / "eval" / "figure_questions.sql"
+SQL_FILES = {"figure": SQL_PATH, "control": ROOT / "eval" / "control_questions.sql"}
 CSV_PATH = ROOT / "eval" / "questions.csv"
 RESULTS_DIR = ROOT / "eval" / "results"
 
@@ -58,6 +60,12 @@ KEY_COLUMNS: dict[str, list[str]] = {
     "38": ["deposits_usd_bn"],
     "39": ["equity_usd_bn"],
     "40": ["net_income_usd_bn"],
+    # Control questions (eval/control_questions.sql), fixed before running them.
+    "41": ["liabilities_usd_bn"],
+    "42": ["higher", "difference_usd_bn"],
+    "43": ["liabilities_to_assets_pct"],
+    "44": ["change_usd_bn"],
+    "45": ["company"],
 }
 
 # Ticker or bank name (docs/schema.md) -> ticker.
@@ -97,10 +105,10 @@ def numbers_match(expected: float, got: float) -> bool:
     return abs(got - expected) / abs(expected) <= REL_TOL
 
 
-def expected_answers(con: duckdb.DuckDBPyConnection) -> dict[str, dict]:
+def expected_answers(con: duckdb.DuckDBPyConnection, sql_path: Path = SQL_PATH) -> dict[str, dict]:
     """id -> {'n_rows', 'banks', 'numbers'} from the reference queries."""
     out = {}
-    for qid, sql in parse_queries(SQL_PATH.read_text()).items():
+    for qid, sql in parse_queries(sql_path.read_text()).items():
         rel = con.sql(sql)
         rows = [dict(zip(rel.columns, r)) for r in rel.fetchall()]
         banks, numbers = set(), []
@@ -150,7 +158,7 @@ def main() -> int:
     with CSV_PATH.open(newline="", encoding="utf-8") as f:
         expected_text = {r["id"]: r["expected_answer"] for r in csv.DictReader(f)}
     with duckdb.connect(str(DB_PATH), read_only=True) as con:
-        expected = expected_answers(con)
+        expected = expected_answers(con, SQL_FILES[meta.get("question_type", "figure")])
 
     out_path = RESULTS_DIR / f"{args.run_name}.csv"
     fields = ["id", "question", "sql", "answer", "expected_answer", "expected_values",

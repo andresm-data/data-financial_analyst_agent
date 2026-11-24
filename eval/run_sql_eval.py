@@ -1,5 +1,7 @@
 """Run the text-to-SQL tool on the 15 figure questions of eval/questions.csv.
 
+With `--type control` it runs the 5 control questions (ids 41-45) instead.
+
 For each question it saves the id, the question, the final executed SQL, the
 columns and rows returned, the error (if any), the number of attempts (with
 retries) and the time taken. A question that fails does not stop the rest.
@@ -13,6 +15,7 @@ be compared with a rule fixed beforehand.
 
 Usage:
     poetry run python eval/run_sql_eval.py sql_run1
+    poetry run python eval/run_sql_eval.py control_run4 --type control
 """
 
 import argparse
@@ -31,13 +34,14 @@ ROOT = Path(__file__).resolve().parent.parent
 CSV_PATH = ROOT / "eval" / "questions.csv"
 RESULTS_DIR = ROOT / "eval" / "results"
 FIGURE_TYPE = "figure"  # type of the 15 figure questions in questions.csv
+QUESTION_TYPES = (FIGURE_TYPE, "control")
 TEMPERATURE = 0.0       # the SQL chain is built with get_llm(temperature=0.0)
 
 
-def figure_questions(path: Path = CSV_PATH) -> list[dict[str, str]]:
-    """The rows of questions.csv with type = figure, in file order."""
+def figure_questions(path: Path = CSV_PATH, qtype: str = FIGURE_TYPE) -> list[dict[str, str]]:
+    """The rows of questions.csv with the given type (default figure), in file order."""
     with path.open(newline="", encoding="utf-8") as f:
-        return [r for r in csv.DictReader(f) if r["type"] == FIGURE_TYPE]
+        return [r for r in csv.DictReader(f) if r["type"] == qtype]
 
 
 def git_commit() -> str:
@@ -71,15 +75,17 @@ def run_question(row: dict[str, str], answer=answer_with_sql) -> dict:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("run_name", help="e.g. sql_run1, sql_run2")
+    parser.add_argument("--type", default=FIGURE_TYPE, choices=QUESTION_TYPES,
+                        help="question type in questions.csv (default: figure)")
     args = parser.parse_args()
 
-    rows = figure_questions()
+    rows = figure_questions(qtype=args.type)
     out_path = RESULTS_DIR / f"{args.run_name}_raw.jsonl"
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     meta = {"run": args.run_name, "model": MODEL_NAME, "temperature": TEMPERATURE,
             "date": date.today().isoformat(), "commit": git_commit(),
             "started_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-            "n_questions": len(rows)}
+            "question_type": args.type, "n_questions": len(rows)}
 
     with out_path.open("w", encoding="utf-8") as out:
         out.write(json.dumps({"meta": meta}) + "\n")

@@ -98,6 +98,18 @@
 4. Errors by cause (`eval/results/sql_run3_errors.csv`): other 3 (29, 34, 37), wrong units 1 (33), wrong year 1 (36). Three of the five (33, 34, 36) put `/ 1e9` inside a ratio or percent change; 37 also needs a percent change.
 5. Lesson: llama3.2:3b copies the shape of the newest example to other question types (the self-join spread to percent changes) and a longer prompt changed an unrelated ranking question (29). Each example fixes its pattern and can break others, so gains on 15 questions are fragile.
 
+## Third iteration (sql_run4)
+1. One change on top of sql_run3, approved (commit `5cd4280`): prompt rule 4 now also says to compute ratios and percent changes on the raw `value` (`100 * (new - old) / old`, `100 * a / b`) and to divide by 1e9 only the returned amounts. `check_sql_safety.py` 40/40, tests 219/219.
+2. sql_run4 (same questions, model, temperature 0, validator, runner and comparator): **12/15 (80.0%)**, the goal, +2 net over sql_run3.
+3. Wrong -> right: 33 (now divides deposits in USD bn by assets in USD bn, so the 1e9 cancels: 59.17%) and 29 (the ranking has `ORDER BY value ASC LIMIT 1` again, although the change did not target rankings). No right -> wrong.
+4. Still wrong (`eval/results/sql_run4_errors.csv`): other 2 (34: `100 * (new - old)` in USD bn without dividing by the old value; 37: no self-join between 2015 and 2025) and wrong column 1 (36: no metric filter, 6 rows). The rule's percent-change formula was ignored in 34 and 36, which were its main targets.
+
+## Honest reading of the 80%
+1. The goal was reached on the same 15 questions used to diagnose the errors and to choose 3 successive changes (units, the "which is higher" example, the ratio rule). The 80% is therefore an optimistic estimate, more than after a single change.
+2. Of the 2 questions gained in sql_run4, only 33 is explained by the change; 29 came back without being targeted, as it had broken in sql_run3 without being targeted. With llama3.2:3b any prompt change moves unrelated questions, and one question is 6.7 points, so 80% could be 73% or 87% with a different but equally valid prompt.
+3. Percent change between two years is still the weakest pattern (34, 36, 37 all fail it), even with the formula in the rules.
+4. Before trusting the result: write the expected answers of the 5 control questions (`eval/control_questions.sql`, never used for tuning), score the final prompt on them, and run sql_run4 again to check it is stable.
+
 ## Comparison rule fix
 After sql_run2, ids 38–40 returned the right value in USD bn but were marked wrong because the bank-set check also ran when no bank is expected, and the model repeated the filtered `company` column. With approval, the bank set is now compared only when the expected answer names a bank (commit `6cd6578`). sql_run1 scores 7/15 under both versions (its CSV is byte-identical); sql_run2 goes from 6/15 to 9/15.
 
@@ -112,7 +124,7 @@ After sql_run2, ids 38–40 returned the right value in USD bn but were marked w
    - By how many US dollars did Morgan Stanley's total assets change from fiscal year 2018 to 2022?
    - Which bank had the smallest percentage growth in total deposits between fiscal years 2016 and 2024?
 
-## Pending (next iteration)
-1. Proposed next single change: a prompt rule that ratios and percent changes are computed on the raw `value` (`100 * (new - old) / old`, `100 * a / b`), dividing by 1e9 only the amounts that are returned. Targets 33, 34 and 36 (and helps 37).
-2. Restore the ranking pattern (29) and the two-year growth ranking (37) without new regressions.
-3. Run the 5 control questions (`eval/control_questions.sql`) on the final prompt to see whether the changes generalize.
+## Pending
+1. Score the final prompt on the 5 control questions (`eval/control_questions.sql`); adding them to the eval set needs approval.
+2. Percent change between two years (34, 36, 37): the formula in the rules is ignored. A candidate next change is an invented worked example of a two-year percent change of one bank that also filters `metric`, checked on the control questions, not only on the 15.
+3. The tool returns rows as dicts, so two columns with the same alias overwrite each other (seen in 31 of sql_run2).

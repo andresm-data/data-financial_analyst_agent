@@ -89,6 +89,7 @@
 3. Wrong -> right: 38, 39, 40 (units fixed). Right -> wrong: 37 (the new SQL failed with a `GROUP BY` error; the retry used `ANY_VALUE(company)` and an absolute difference instead of a percent, and answered JPM instead of TFC).
 4. Still wrong, with a new failure: 30 divided by 1e9 and then multiplied back by 1e9; 35 used the `_usd_bn` alias without dividing; 31 and 32 now give the right difference in USD bn but still do not name the higher bank; 33 still ignores `Assets` and now returns `null`.
 5. The units rule half-worked: simple lookups follow it, but in arithmetic expressions the 3B model applies `/ 1e9` inconsistently.
+6. Errors of sql_run2 by cause (`eval/results/sql_run2_errors.csv`): other 3 (31 and 32 do not name the higher bank; 37 aggregates all banks after a failed `GROUP BY`), wrong units 2 (30, 35), wrong column 1 (33). The biggest group is now "which is higher" (31, 32).
 
 ## Comparison rule fix
 After sql_run2, ids 38–40 returned the right value in USD bn but were marked wrong because the bank-set check also ran when no bank is expected, and the model repeated the filtered `company` column. With approval, the bank set is now compared only when the expected answer names a bank (commit `6cd6578`). sql_run1 scores 7/15 under both versions (its CSV is byte-identical); sql_run2 goes from 6/15 to 9/15.

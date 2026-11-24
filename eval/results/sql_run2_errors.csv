@@ -1,0 +1,7 @@
+id,cause,secondary_cause,explanation
+30,wrong units,,"Divides each value by 1e9 and then multiplies the difference back by 1e9: asset_diff_usd_bn = 1013161999999.9998 (whole USD under a _usd_bn alias), expected 1013.2 USD bn. Metric, year and logic are right."
+31,other,bad SQL,"Does not say which bank is higher: no bank cell. The first 2 attempts failed (BinderException, wrong column alias in subqueries); the 3rd ran but selects two columns with the same name (revenues_usd_bn), so only MS's value is kept, plus revenue_diff_usd_bn = MS - GS = 8.249 (right value and unit)."
+32,other,,"Does not say which bank is higher: no bank cell. net_income_diff_usd_bn = BAC - C = 17.077 (right value and unit); the reference returns higher = 'BAC' and ABS difference."
+33,wrong column,,"Still filters only metric = 'Deposits', so MAX(CASE WHEN metric = 'Assets' ...) is NULL and pct_deposits = null; Assets is never read. Same cause as sql_run1."
+35,wrong units,,"Alias change_usd_bn but no division by 1e9: 97017000000 in whole USD, expected 97.0 USD bn. Metric, years and logic are right."
+37,other,bad SQL,"Regression (right in sql_run1). Attempt 1 failed (BinderException: company not in GROUP BY); the retry used ANY_VALUE(company) with no GROUP BY, so it aggregates all banks into one row, and computes (2025 - 2015) * 100 in USD bn instead of a percent change: returns JPM, expected TFC."

@@ -1,0 +1,63 @@
+id,question,sql,answer,expected_answer,expected_values,correct,error,intentos,seconds,run,model,temperature,run_date,commit
+41,What were Goldman Sachs' total liabilities at the end of fiscal year 2022?,"SELECT
+  value / 1e9 AS liabilities_usd_bn
+FROM financials
+WHERE
+  company = 'GS' AND metric = 'Liabilities' AND fiscal_year = 2022
+LIMIT 100","[{""liabilities_usd_bn"": 1324.61}]","USD 1,324.6 billion in total liabilities (FY2022).",1324.6,yes,,1,77.0,control_run4,llama3.2:3b,0.0,2026-11-24,ab18da6
+42,"Which had higher stockholders' equity in fiscal year 2021, Bank of America or Citigroup, and by how much?","SELECT
+  bac.value / 1e9 AS bac_se_usd_bn,
+  c.value / 1e9 AS c_se_usd_bn,
+  CASE WHEN bac.value > c.value THEN 'BAC' ELSE 'C' END AS higher,
+  ABS(bac.value - c.value) / 1e9 AS difference_usd_bn
+FROM financials AS bac
+JOIN financials AS c
+  ON c.metric = bac.metric AND c.fiscal_year = bac.fiscal_year
+WHERE
+  bac.company = 'BAC'
+  AND c.company = 'C'
+  AND bac.metric = 'StockholdersEquity'
+  AND bac.fiscal_year = 2021
+LIMIT 100","[{""bac_se_usd_bn"": 270.066, ""c_se_usd_bn"": 201.972, ""higher"": ""BAC"", ""difference_usd_bn"": 68.094}]","Bank of America, with USD 270.1 billion vs Citigroup's USD 202.0 billion in FY2021; a difference of USD 68.1 billion (absolute).",BAC; 68.1,yes,,1,22.2,control_run4,llama3.2:3b,0.0,2026-11-24,ab18da6
+43,What percentage of JPMorgan Chase's total assets were liabilities in fiscal year 2020?,"SELECT
+  (
+    jpm.value / 1e9
+  ) AS assets_usd_bn,
+  (
+    jpm.value - jpm_liabilities.value
+  ) / 1e9 AS liabilities_usd_bn,
+  (
+    jpm_liabilities.value / 1e9
+  ) * 100 AS liabilities_percent_usd_bn
+FROM financials AS jpm
+JOIN financials AS jpm_liabilities
+  ON jpm_liabilities.metric = jpm.metric
+  AND jpm_liabilities.fiscal_year = jpm.fiscal_year
+WHERE
+  jpm.company = 'JPM' AND jpm.metric = 'Liabilities' AND jpm.fiscal_year = 2020
+LIMIT 100","[{""assets_usd_bn"": 3105.403, ""liabilities_usd_bn"": 2667.087, ""liabilities_percent_usd_bn"": 43831.6}, {""assets_usd_bn"": 3105.403, ""liabilities_usd_bn"": 2092.69, ""liabilities_percent_usd_bn"": 101271.3}, {""assets_usd_bn"": 3105.403, ""liabilities_usd_bn"": 2038.307, ""liabilities_percent_usd_bn"": 106709.6}, {""assets_usd_bn"": 3105.403, ""liabilities_usd_bn"": 1045.513, ""liabilities_percent_usd_bn"": 205989.0}, {""assets_usd_bn"": 3105.403, ""liabilities_usd_bn"": 558.7, ""liabilities_percent_usd_bn"": 254670.3}, {""assets_usd_bn"": 3105.403, ""liabilities_usd_bn"": 0.0, ""liabilities_percent_usd_bn"": 310540.3}]","91.7% (USD 3,105.4 billion in liabilities / USD 3,384.8 billion in total assets, FY2020).",91.7,no,,1,21.2,control_run4,llama3.2:3b,0.0,2026-11-24,ab18da6
+44,By how many US dollars did Morgan Stanley's total assets change from fiscal year 2018 to 2022?,"SELECT
+  ms.value / 1e9 AS ms_assets_usd_bn,
+  ms2.value / 1e9 AS ms_assets_usd_bn_2022,
+  ms2.value - ms.value AS change_usd_bn
+FROM financials AS ms
+JOIN financials AS ms2
+  ON ms2.metric = ms.metric AND ms2.fiscal_year = ms.fiscal_year + 1
+WHERE
+  ms.company = 'MS' AND ms.metric = 'Assets' AND ms.fiscal_year IN (2018, 2022)
+LIMIT 100","[{""ms_assets_usd_bn"": 853.531, ""ms_assets_usd_bn_2022"": 2686.477, ""change_usd_bn"": 1832946000000.0}, {""ms_assets_usd_bn"": 1180.231, ""ms_assets_usd_bn_2022"": 3875.393, ""change_usd_bn"": 2695162000000.0}, {""ms_assets_usd_bn"": 853.531, ""ms_assets_usd_bn_2022"": 2434.079, ""change_usd_bn"": 1580548000000.0}, {""ms_assets_usd_bn"": 1180.231, ""ms_assets_usd_bn_2022"": 3180.151, ""change_usd_bn"": 1999920000000.0}, {""ms_assets_usd_bn"": 853.531, ""ms_assets_usd_bn_2022"": 1951.158, ""change_usd_bn"": 1097627000000.0}, {""ms_assets_usd_bn"": 1180.231, ""ms_assets_usd_bn_2022"": 2412.0, ""change_usd_bn"": 1231769000000.0}, {""ms_assets_usd_bn"": 853.531, ""ms_assets_usd_bn_2022"": 992.968, ""change_usd_bn"": 139437000000.0}, {""ms_assets_usd_bn"": 1180.231, ""ms_assets_usd_bn_2022"": 1641.594, ""change_usd_bn"": 461363000000.0}, {""ms_assets_usd_bn"": 853.531, ""ms_assets_usd_bn_2022"": 895.429, ""change_usd_bn"": 41898000000.0}, {""ms_assets_usd_bn"": 1180.231, ""ms_assets_usd_bn_2022"": 1193.693, ""change_usd_bn"": 13462000000.0}, {""ms_assets_usd_bn"": 853.531, ""ms_assets_usd_bn_2022"": 473.078, ""change_usd_bn"": -380453000000.0}, {""ms_assets_usd_bn"": 1180.231, ""ms_assets_usd_bn_2022"": 535.349, ""change_usd_bn"": -644882000000.0}]","+USD 326.7 billion (absolute), from USD 853.5 billion in FY2018 to USD 1,180.2 billion in FY2022.",326.7,no,,1,18.6,control_run4,llama3.2:3b,0.0,2026-11-24,ab18da6
+45,Which bank had the smallest percentage growth in total deposits between fiscal years 2016 and 2024?,"SELECT
+  company,
+  value / 1e9 AS deposits_2016_usd_bn,
+  value / 1e9 AS deposits_2024_usd_bn,
+  (
+    value / 1e9 - deposits_2016_usd_bn
+  ) / deposits_2016_usd_bn * 100 AS pct_change
+FROM financials
+WHERE
+  metric = 'Deposits'
+  AND fiscal_year IN (2016, 2024)
+  AND company IN ('BAC', 'C', 'GS', 'JPM', 'MS', 'TFC')
+ORDER BY
+  pct_change
+LIMIT 1","[{""company"": ""JPM"", ""deposits_2016_usd_bn"": 1375.179, ""deposits_2024_usd_bn"": 1375.179, ""pct_change"": 0.0}]","Citigroup (C), +38.2% (percent), from USD 929.4 billion in FY2016 to USD 1,284.5 billion in FY2024.",C,no,,1,19.9,control_run4,llama3.2:3b,0.0,2026-11-24,ab18da6

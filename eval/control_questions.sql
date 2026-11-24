@@ -1,17 +1,18 @@
--- Control questions (not in eval/questions.csv) to check whether the sql_run2
--- prompt change generalizes beyond the 15 figure questions used to diagnose it.
--- Proposed 2026-11-24; NOT added to eval/questions.csv until approved.
+-- Expected answers for the control questions in eval/questions.csv (ids 41-45,
+-- type = control). They check whether the prompt changes generalize beyond the
+-- 15 figure questions used to diagnose and tune them; they were never used for
+-- tuning. Written 2026-11-24 before any run on them; added to the CSV with approval.
 -- Same conventions as eval/figure_questions.sql: amounts in USD billions and
 -- percents rounded to 1 decimal, rounding only in the final SELECT.
 -- Run read-only on data/processed/finance.duckdb.
 
--- id: c1
+-- id: 41
 -- What were Goldman Sachs' total liabilities at the end of fiscal year 2022?
 SELECT ROUND(value / 1e9, 1) AS liabilities_usd_bn
 FROM financials
 WHERE company = 'GS' AND metric = 'Liabilities' AND fiscal_year = 2022;
 
--- id: c2
+-- id: 42
 -- Which had higher stockholders' equity in fiscal year 2021, Bank of America or Citigroup, and by how much?
 SELECT
     ROUND(bac.value / 1e9, 1)                   AS bac_equity_usd_bn,
@@ -24,7 +25,7 @@ JOIN financials AS c
 WHERE bac.company = 'BAC' AND c.company = 'C'
   AND bac.metric = 'StockholdersEquity' AND bac.fiscal_year = 2021;
 
--- id: c3
+-- id: 43
 -- What percentage of JPMorgan Chase's total assets were liabilities in fiscal year 2020?
 SELECT
     ROUND(l.value / 1e9, 1)           AS liabilities_usd_bn,
@@ -36,7 +37,7 @@ JOIN financials AS a
 WHERE l.company = 'JPM' AND l.fiscal_year = 2020
   AND l.metric = 'Liabilities' AND a.metric = 'Assets';
 
--- id: c4
+-- id: 44
 -- By how many US dollars did Morgan Stanley's total assets change from fiscal year 2018 to 2022?
 SELECT
     ROUND(y0.value / 1e9, 1)              AS assets_2018_usd_bn,
@@ -48,7 +49,7 @@ JOIN financials AS y1
 WHERE y0.company = 'MS' AND y0.metric = 'Assets'
   AND y0.fiscal_year = 2018 AND y1.fiscal_year = 2022;
 
--- id: c5
+-- id: 45
 -- Which bank had the smallest percentage growth in total deposits between fiscal years 2016 and 2024?
 SELECT
     y0.company,

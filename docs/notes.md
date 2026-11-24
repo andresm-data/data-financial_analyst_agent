@@ -91,7 +91,7 @@
 5. The units rule half-worked: simple lookups follow it, but in arithmetic expressions the 3B model applies `/ 1e9` inconsistently.
 
 ## Comparison rule fix
-After sql_run2, ids 38–40 returned the right value in USD bn but were marked wrong because the bank-set check also ran when no bank is expected, and the model repeated the filtered `company` column. With approval, the bank set is now compared only when the expected answer names a bank (commit "fix(eval): compare the set of banks only when ..."). sql_run1 scores 7/15 under both versions (its CSV is byte-identical); sql_run2 goes from 6/15 to 9/15.
+After sql_run2, ids 38–40 returned the right value in USD bn but were marked wrong because the bank-set check also ran when no bank is expected, and the model repeated the filtered `company` column. With approval, the bank set is now compared only when the expected answer names a bank (commit `6cd6578`). sql_run1 scores 7/15 under both versions (its CSV is byte-identical); sql_run2 goes from 6/15 to 9/15.
 
 ## Caveats
 1. sql_run2 is measured on the same 15 questions used to diagnose the errors, so the improvement may be somewhat inflated, even though no eval question, answer or figure went into the prompt.

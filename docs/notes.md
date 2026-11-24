@@ -69,3 +69,76 @@
 2. Failure: "Which had more total deposits in fiscal year 2017, JPMorgan Chase or Citigroup, and by how much?" failed twice with the same `BinderException` (a column alias used next to scalar subqueries), so the corrected query repeated the mistake. On the third attempt the model switched to `UNION ALL`, which the validator rejects, so the tool returned an error and no figures.
 3. Pending: the repair prompt has the rules and the schema but not the 3 worked examples; adding the `MAX(CASE WHEN ...)` example could steer corrections away from scalar subqueries. Also decide whether to allow `UNION ALL` (today any UNION is rejected).
 4. Pending: measure SQL accuracy on the 15 figure questions of `eval/questions.csv` (they were not used for tuning) and group the logged errors by `error_type`.
+
+# Week 4: SQL accuracy on the 15 figure questions
+
+## Measurement (sql_run1)
+1. `eval/run_sql_eval.py <run>` runs the tool on the 15 figure questions (ids 26–40) and saves SQL, rows, error, attempts and time per question to `eval/results/<run>_raw.jsonl`; `eval/compare_sql.py <run>` scores it into `eval/results/<run>.csv`.
+2. The expected values are the key columns of the hand-written queries in `eval/figure_questions.sql`, run read-only (not parsed from the CSV text). Numbers must be within 1%, banks must match as a set, and units are not normalized. The rule was fixed before looking at the answers.
+3. sql_run1 (commit `17da7be`): **7/15 (46.7%)**. All 15 ran on the first attempt with no error; the 5 "which bank" questions and the 2 percent changes were right.
+
+## Errors by cause (`eval/results/sql_run1_errors.csv`)
+1. **wrong units: 5** (30, 35, 38, 39, 40). Right metric, year and logic, but the prompt asked for raw `value` in whole USD and the expected answers are in USD billions.
+2. **other: 2** (31, 32). "Which was higher, and by how much?": the SQL returned both values and a signed difference but never said which bank was higher (the reference returns `higher` and `ABS(...)`).
+3. **wrong column: 1** (33). Divided deposits by deposits (`pct_deposits = 1.0`) and never read `Assets`.
+4. wrong year 0, bad SQL 0. Counting secondary causes, units appear in all 8 wrong answers.
+
+## Change and sql_run2
+1. One change, to the biggest group (commit `35af844`): prompt rule 4 now asks for amounts in USD billions (`value / 1e9`, alias ending in `_usd_bn`) and ratios in percent, without rounding; the 3 worked examples (none from the eval set) were updated to follow it, and the tool description says the same. `check_sql_safety.py` 40/40, tests 218/218.
+2. sql_run2 (same questions, model, temperature 0, validator, runner and comparator): **9/15 (60.0%)**, +2 net. The goal of 12/15 (80%) was **not** reached.
+3. Wrong -> right: 38, 39, 40 (units fixed). Right -> wrong: 37 (the new SQL failed with a `GROUP BY` error; the retry used `ANY_VALUE(company)` and an absolute difference instead of a percent, and answered JPM instead of TFC).
+4. Still wrong, with a new failure: 30 divided by 1e9 and then multiplied back by 1e9; 35 used the `_usd_bn` alias without dividing; 31 and 32 now give the right difference in USD bn but still do not name the higher bank; 33 still ignores `Assets` and now returns `null`.
+5. The units rule half-worked: simple lookups follow it, but in arithmetic expressions the 3B model applies `/ 1e9` inconsistently.
+6. Errors of sql_run2 by cause (`eval/results/sql_run2_errors.csv`): other 3 (31 and 32 do not name the higher bank; 37 aggregates all banks after a failed `GROUP BY`), wrong units 2 (30, 35), wrong column 1 (33). The biggest group is now "which is higher" (31, 32).
+
+## Second iteration (sql_run3)
+1. One change on top of sql_run2, approved (commit `184b6ec`): a 4th invented worked example, "Which had larger total liabilities in fiscal year 2019, Truist Financial or Goldman Sachs, and by how much?", whose SQL self-joins the two banks and returns `higher` and `ABS(...) / 1e9`. It is not in `eval/questions.csv` nor in `eval/control_questions.sql`, and it returns 1 row. `check_sql_safety.py` 40/40, tests 219/219.
+2. sql_run3 (same questions, model, temperature 0, validator, runner and comparator): **10/15 (66.7%)**, +1 net over sql_run2. The goal of 12/15 (80%) was **not** reached.
+3. Wrong -> right: 31 and 32 (now name the higher bank with the absolute difference, the target of the change), and 30 and 35 (the self-join style also fixed their units). Right -> wrong: 29 (ranking without ORDER BY / LIMIT 1), 34 and 36 (percent change written as `(new - old) * 100` with no division by the old value, and 36 has no year filter). 33 now reads Assets but divides by 1e9 inside the ratio; 37 is still wrong.
+4. Errors by cause (`eval/results/sql_run3_errors.csv`): other 3 (29, 34, 37), wrong units 1 (33), wrong year 1 (36). Three of the five (33, 34, 36) put `/ 1e9` inside a ratio or percent change; 37 also needs a percent change.
+5. Lesson: llama3.2:3b copies the shape of the newest example to other question types (the self-join spread to percent changes) and a longer prompt changed an unrelated ranking question (29). Each example fixes its pattern and can break others, so gains on 15 questions are fragile.
+
+## Third iteration (sql_run4)
+1. One change on top of sql_run3, approved (commit `5cd4280`): prompt rule 4 now also says to compute ratios and percent changes on the raw `value` (`100 * (new - old) / old`, `100 * a / b`) and to divide by 1e9 only the returned amounts. `check_sql_safety.py` 40/40, tests 219/219.
+2. sql_run4 (same questions, model, temperature 0, validator, runner and comparator): **12/15 (80.0%)**, the goal, +2 net over sql_run3.
+3. Wrong -> right: 33 (now divides deposits in USD bn by assets in USD bn, so the 1e9 cancels: 59.17%) and 29 (the ranking has `ORDER BY value ASC LIMIT 1` again, although the change did not target rankings). No right -> wrong.
+4. Still wrong (`eval/results/sql_run4_errors.csv`): other 2 (34: `100 * (new - old)` in USD bn without dividing by the old value; 37: no self-join between 2015 and 2025) and wrong column 1 (36: no metric filter, 6 rows). The rule's percent-change formula was ignored in 34 and 36, which were its main targets.
+
+## Honest reading of the 80%
+1. The goal was reached on the same 15 questions used to diagnose the errors and to choose 3 successive changes (units, the "which is higher" example, the ratio rule). The 80% is therefore an optimistic estimate, more than after a single change.
+2. Of the 2 questions gained in sql_run4, only 33 is explained by the change; 29 came back without being targeted, as it had broken in sql_run3 without being targeted. With llama3.2:3b any prompt change moves unrelated questions, and one question is 6.7 points, so 80% could be 73% or 87% with a different but equally valid prompt.
+3. Percent change between two years is still the weakest pattern (34, 36, 37 all fail it), even with the formula in the rules.
+4. Before trusting the result: write the expected answers of the 5 control questions (`eval/control_questions.sql`, never used for tuning), score the final prompt on them, and run sql_run4 again to check it is stable.
+
+## Control questions (control_run4)
+1. With approval, the 5 control questions were added to `eval/questions.csv` as ids 41–45 with `type = control`, so the 15 `figure` questions and the 25 `text` ones did not change and sql_run1–4 still score the same. Their hand-written SQL is in `eval/control_questions.sql`, the key columns were fixed in `eval/compare_sql.py` before running them, and the runner takes `--type control`.
+2. The final prompt (sql_run4) on the control questions: **2/5 (40.0%)**, against 12/15 (80.0%) on the 15 tuning questions.
+3. Right: 41 (direct lookup) and 42 ("which is higher", the pattern of the newest example). Wrong (`eval/results/control_run4_errors.csv`): 43 wrong column (never reads Assets, like 33), 44 wrong year (joins each year with the next one instead of 2018 with 2022, and whole USD), 45 other (no self-join between the two years, like 37).
+4. Conclusion: the 80% does not generalize. The prompt learned the patterns that have a worked example (lookup, ranking, "which is higher") but not the ones without one: a ratio of two metrics, a change between two years and a growth ranking. The 15 questions overstate the real accuracy, as the caveat warned.
+
+## Fourth iteration (sql_run5, control_run5)
+1. One change on top of sql_run4, approved (commit `450891f`): a 5th invented worked example, "How much did Bank of America's total liabilities change from fiscal year 2012 to 2017, in US dollars and in percent?", a self-join of one bank's two years on `company` and `metric` that returns the change in USD bn and `100 * (new - old) / old`. Not in the 15 nor in the control questions; it returns 1 row. `check_sql_safety.py` 40/40, tests 220/220.
+2. sql_run5: **10/15 (66.7%)**, -2 against sql_run4. control_run5: **1/5 (20.0%)**, -1 against control_run4. Worse on both sets.
+3. Wrong -> right: 36 (now 25.92%). Right -> wrong: 30, 32 and 33 on the 15, and 42 on the control set. 34 now has the right formula and the right first row, but no `metric` filter (6 rows).
+4. Why: the model copied the example's join `ON y1.company = y0.company AND y1.metric = y0.metric` into comparisons of two banks (30, 32, 42) and ratios of two metrics (33, 43), where the join must be on `fiscal_year` or `company` only, so they return 0 rows or the wrong rows. Errors (`eval/results/sql_run5_errors.csv`, `control_run5_errors.csv`): wrong column 4 + 2, other 1 + 2.
+5. The control questions guided this change (their failures 44 and 45 motivated it), so control_run5 is no longer a held-out measurement; a new control set would be needed to measure generalization from here on.
+6. Lesson: with llama3.2:3b, each worked example is copied into question types it was not meant for. Four prompt changes moved the score on the 15 questions between 9 and 12, while the control set stayed at 1–2 of 5. sql_run4 is the best prompt measured.
+
+## Comparison rule fix
+After sql_run2, ids 38–40 returned the right value in USD bn but were marked wrong because the bank-set check also ran when no bank is expected, and the model repeated the filtered `company` column. With approval, the bank set is now compared only when the expected answer names a bank (commit `6cd6578`). sql_run1 scores 7/15 under both versions (its CSV is byte-identical); sql_run2 goes from 6/15 to 9/15.
+
+## Caveats
+1. sql_run2 is measured on the same 15 questions used to diagnose the errors, so the improvement may be somewhat inflated, even though no eval question, answer or figure went into the prompt.
+2. The comparison rule was corrected after seeing sql_run2. The fix only affects questions with no expected bank, and it does not change sql_run1.
+3. With 15 questions, one question is 6.7 points; one run per configuration at temperature 0 does not show run-to-run variance.
+4. Proposed control questions to check the change without that bias (not used for tuning, not in `eval/questions.csv`; hand-written SQL in `eval/control_questions.sql`, each returns 1 row; to be added to the eval set only after approval):
+   - What were Goldman Sachs' total liabilities at the end of fiscal year 2022?
+   - Which had higher stockholders' equity in fiscal year 2021, Bank of America or Citigroup, and by how much?
+   - What percentage of JPMorgan Chase's total assets were liabilities in fiscal year 2020?
+   - By how many US dollars did Morgan Stanley's total assets change from fiscal year 2018 to 2022?
+   - Which bank had the smallest percentage growth in total deposits between fiscal years 2016 and 2024?
+
+## Pending
+1. Done: `450891f` (the 5th example) was reverted with a new commit, so the final prompt is the sql_run4 one again (`src/` identical to `5cd4280`). Its expected scores are 12/15 and 2/5; a repeat run would also check stability.
+2. More examples are not converging with a 3B model. Options: build the SQL from templates per question type (lookup, ranking, two-bank comparison, two-year change, ratio of two metrics) with the model only extracting bank, metric and years; or try a larger local model. Either change needs a new held-out set to be measured fairly.
+3. The tool returns rows as dicts, so two columns with the same alias overwrite each other (seen in 31 of sql_run2).

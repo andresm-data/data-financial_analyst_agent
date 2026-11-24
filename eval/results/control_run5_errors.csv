@@ -1,0 +1,5 @@
+id,cause,secondary_cause,explanation
+42,wrong column,,"Regression. Two-bank comparison joined ON c.company = b.company AND c.metric = b.metric (copied from the new example); with b.company = 'BAC' and c.company = 'C', 0 rows."
+43,wrong column,,"Joins Assets and Liabilities ON company AND metric, which can never match two different metrics: 0 rows. Reference joins on company and fiscal_year."
+44,other,,"No self-join: returns the 2018 and 2022 rows separately (2 rows vs 1); the second row holds the right change (326.7) by subtracting a scalar subquery for 2018."
+45,other,,"Groups by company but computes (2024 - 2016) in USD bn * 100 instead of dividing by the 2016 value, so it picks MS, expected C."

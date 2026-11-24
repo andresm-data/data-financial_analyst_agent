@@ -1,0 +1,167 @@
+id,question,sql,answer,expected_answer,expected_values,correct,error,intentos,seconds,run,model,temperature,run_date,commit
+26,Which bank had the highest total assets in fiscal year 2025?,"SELECT
+  company,
+  value / 1e9 AS assets_usd_bn
+FROM financials
+WHERE
+  metric = 'Assets' AND fiscal_year = 2025
+ORDER BY
+  value DESC
+LIMIT 1","[{""company"": ""JPM"", ""assets_usd_bn"": 4424.9}]","JPMorgan Chase (JPM), with USD 4,424.9 billion in total assets (FY2025).",JPM,yes,,1,35.1,sql_run4,llama3.2:3b,0.0,2026-11-24,5cd4280
+27,Which bank had the lowest net income in fiscal year 2025?,"SELECT
+  company,
+  value / 1e9 AS net_income_usd_bn
+FROM financials
+WHERE
+  metric = 'NetIncomeLoss' AND fiscal_year = 2025
+ORDER BY
+  value ASC
+LIMIT 1","[{""company"": ""TFC"", ""net_income_usd_bn"": 5.307}]","Truist Financial (TFC), with USD 5.3 billion in net income (FY2025).",TFC,yes,,1,7.4,sql_run4,llama3.2:3b,0.0,2026-11-24,5cd4280
+28,Which bank had the largest total deposits in fiscal year 2020?,"SELECT
+  company,
+  value / 1e9 AS deposits_usd_bn
+FROM financials
+WHERE
+  metric = 'Deposits' AND fiscal_year = 2020
+ORDER BY
+  value DESC
+LIMIT 1","[{""company"": ""JPM"", ""deposits_usd_bn"": 2144.257}]","JPMorgan Chase (JPM), with USD 2,144.3 billion in total deposits (FY2020).",JPM,yes,,1,7.3,sql_run4,llama3.2:3b,0.0,2026-11-24,5cd4280
+29,Which bank had the lowest stockholders' equity in fiscal year 2025?,"SELECT
+  company,
+  value / 1e9 AS stockholders_equity_usd_bn
+FROM financials
+WHERE
+  metric = 'StockholdersEquity' AND fiscal_year = 2025
+ORDER BY
+  value ASC
+LIMIT 1","[{""company"": ""TFC"", ""stockholders_equity_usd_bn"": 65.189}]","Truist Financial (TFC), with USD 65.2 billion in stockholders' equity (FY2025).",TFC,yes,,1,8.0,sql_run4,llama3.2:3b,0.0,2026-11-24,5cd4280
+30,How much larger were JPMorgan Chase's total assets than Bank of America's in fiscal year 2025?,"SELECT
+  jpm.value / 1e9 AS jpm_assets_usd_bn,
+  bac.value / 1e9 AS bac_assets_usd_bn,
+  jpm.value / 1e9 - bac.value / 1e9 AS difference_usd_bn
+FROM financials AS jpm
+JOIN financials AS bac
+  ON bac.metric = jpm.metric AND bac.fiscal_year = jpm.fiscal_year
+WHERE
+  jpm.company = 'JPM'
+  AND bac.company = 'BAC'
+  AND jpm.metric = 'Assets'
+  AND jpm.fiscal_year = 2025
+LIMIT 100","[{""jpm_assets_usd_bn"": 4424.9, ""bac_assets_usd_bn"": 3411.738, ""difference_usd_bn"": 1013.1619999999998}]","JPMorgan Chase's total assets (USD 4,424.9 billion) were USD 1,013.2 billion larger than Bank of America's (USD 3,411.7 billion) in FY2025 (absolute difference).",1013.2,yes,,1,20.5,sql_run4,llama3.2:3b,0.0,2026-11-24,5cd4280
+31,"Which reported higher revenues in fiscal year 2024, Goldman Sachs or Morgan Stanley, and by how much?","SELECT
+  gs.value / 1e9 AS gs_revenues_usd_bn,
+  ms.value / 1e9 AS ms_revenues_usd_bn,
+  CASE WHEN gs.value > ms.value THEN 'GS' ELSE 'MS' END AS higher,
+  ABS(gs.value - ms.value) / 1e9 AS difference_usd_bn
+FROM financials AS gs
+JOIN financials AS ms
+  ON gs.metric = ms.metric AND gs.fiscal_year = ms.fiscal_year
+WHERE
+  gs.company = 'GS'
+  AND ms.company = 'MS'
+  AND gs.metric = 'Revenues'
+  AND gs.fiscal_year = 2024
+LIMIT 100","[{""gs_revenues_usd_bn"": 53.512, ""ms_revenues_usd_bn"": 61.761, ""higher"": ""MS"", ""difference_usd_bn"": 8.249}]","Morgan Stanley, with USD 61.8 billion vs Goldman Sachs' USD 53.5 billion in FY2024; a difference of USD 8.2 billion (absolute).",MS; 8.2,yes,,1,21.8,sql_run4,llama3.2:3b,0.0,2026-11-24,5cd4280
+32,"Which had higher net income in fiscal year 2023, Citigroup or Bank of America, and by how much?","SELECT
+  c.value / 1e9 AS c_net_income_usd_bn,
+  b.value / 1e9 AS b_net_income_usd_bn,
+  CASE WHEN c.value > b.value THEN 'C' ELSE 'BAC' END AS higher,
+  ABS(c.value - b.value) / 1e9 AS difference_usd_bn
+FROM financials AS c
+JOIN financials AS b
+  ON b.metric = c.metric AND b.fiscal_year = c.fiscal_year
+WHERE
+  c.company = 'C'
+  AND b.company = 'BAC'
+  AND c.metric = 'NetIncomeLoss'
+  AND c.fiscal_year = 2023
+LIMIT 100","[{""c_net_income_usd_bn"": 9.228, ""b_net_income_usd_bn"": 26.305, ""higher"": ""BAC"", ""difference_usd_bn"": 17.077}]","Bank of America, with USD 26.3 billion vs Citigroup's USD 9.2 billion in FY2023; a difference of USD 17.1 billion (absolute).",BAC; 17.1,yes,,1,22.3,sql_run4,llama3.2:3b,0.0,2026-11-24,5cd4280
+33,What percentage of Bank of America's total assets were funded by deposits in fiscal year 2025?,"SELECT
+  (
+    MAX(CASE WHEN metric = 'Deposits' THEN value END) / 1e9
+  ) / (
+    MAX(CASE WHEN metric = 'Assets' THEN value END) / 1e9
+  ) * 100 AS percent_deposits
+FROM financials
+WHERE
+  company = 'BAC' AND fiscal_year = 2025
+LIMIT 100","[{""percent_deposits"": 59.17010626255592}]","59.2% (USD 2,018.7 billion in deposits / USD 3,411.7 billion in total assets, FY2025).",59.2,yes,,1,12.8,sql_run4,llama3.2:3b,0.0,2026-11-24,5cd4280
+34,"How much did Goldman Sachs' revenues grow from fiscal year 2022 to 2025, in percent?","SELECT
+  (
+    SELECT
+      value
+    FROM financials
+    WHERE
+      company = 'GS' AND metric = 'Revenues' AND fiscal_year = 2022
+  ) / 1e9 AS revenues_2022_usd_bn,
+  (
+    SELECT
+      value
+    FROM financials
+    WHERE
+      company = 'GS' AND metric = 'Revenues' AND fiscal_year = 2025
+  ) / 1e9 AS revenues_2025_usd_bn,
+  100 * (
+    (
+      SELECT
+        value
+      FROM financials
+      WHERE
+        company = 'GS' AND metric = 'Revenues' AND fiscal_year = 2025
+    ) / 1e9 - (
+      SELECT
+        value
+      FROM financials
+      WHERE
+        company = 'GS' AND metric = 'Revenues' AND fiscal_year = 2022
+    ) / 1e9
+  ) AS pct_change
+LIMIT 100","[{""revenues_2022_usd_bn"": 47.365, ""revenues_2025_usd_bn"": 58.283, ""pct_change"": 1091.8}]","23.1% growth (percent), from USD 47.4 billion in FY2022 to USD 58.3 billion in FY2025.",23.1,no,,2,58.3,sql_run4,llama3.2:3b,0.0,2026-11-24,5cd4280
+35,By how many US dollars did JPMorgan Chase's total deposits change from fiscal year 2021 to 2025?,"SELECT
+  MAX(CASE WHEN fiscal_year = 2021 THEN value END) / 1e9 AS deposits_2021_usd_bn,
+  MAX(CASE WHEN fiscal_year = 2025 THEN value END) / 1e9 AS deposits_2025_usd_bn,
+  MAX(CASE WHEN fiscal_year = 2025 THEN value END) / 1e9 - MAX(CASE WHEN fiscal_year = 2021 THEN value END) / 1e9 AS change_usd_bn
+FROM financials
+WHERE
+  company = 'JPM' AND metric = 'Deposits'
+LIMIT 100","[{""deposits_2021_usd_bn"": 2462.303, ""deposits_2025_usd_bn"": 2559.32, ""change_usd_bn"": 97.01700000000028}]","+USD 97.0 billion (absolute), from USD 2,462.3 billion in FY2021 to USD 2,559.3 billion in FY2025.",97,yes,,1,49.0,sql_run4,llama3.2:3b,0.0,2026-11-24,5cd4280
+36,What was the percentage change in Morgan Stanley's net income from fiscal year 2024 to 2025?,"SELECT
+  (
+    ms2025.value / 1e9 - ms2024.value / 1e9
+  ) * 100 AS pct_change
+FROM financials AS ms2025
+JOIN financials AS ms2024
+  ON ms2025.metric = ms2024.metric AND ms2025.fiscal_year = ms2024.fiscal_year + 1
+WHERE
+  ms2025.company = 'MS' AND ms2024.company = 'MS' AND ms2024.fiscal_year = 2024
+LIMIT 100","[{""pct_change"": 888.3999999999993}, {""pct_change"": 347.1}, {""pct_change"": 20519.90000000001}, {""pct_change"": 19797.499999999993}, {""pct_change"": 712.1000000000009}, {""pct_change"": 3951.600000000002}]","+25.9% (percent), from USD 13.4 billion in FY2024 to USD 16.9 billion in FY2025.",25.9,no,,1,17.5,sql_run4,llama3.2:3b,0.0,2026-11-24,5cd4280
+37,Which bank had the largest percentage growth in total assets between fiscal years 2015 and 2025?,"SELECT
+  company,
+  value / 1e9 AS assets_2015_usd_bn,
+  value / 1e9 AS assets_2025_usd_bn,
+  (
+    value / 1e9 - assets_2015_usd_bn
+  ) / assets_2015_usd_bn * 100 AS pct_change
+FROM financials
+WHERE
+  metric = 'Assets' AND fiscal_year IN (2015, 2025)
+LIMIT 100","[{""company"": ""JPM"", ""assets_2015_usd_bn"": 2351.698, ""assets_2025_usd_bn"": 2351.698, ""pct_change"": 0.0}, {""company"": ""JPM"", ""assets_2015_usd_bn"": 4424.9, ""assets_2025_usd_bn"": 4424.9, ""pct_change"": 0.0}, {""company"": ""BAC"", ""assets_2015_usd_bn"": 2144.287, ""assets_2025_usd_bn"": 2144.287, ""pct_change"": 0.0}, {""company"": ""BAC"", ""assets_2015_usd_bn"": 3411.738, ""assets_2025_usd_bn"": 3411.738, ""pct_change"": 0.0}, {""company"": ""C"", ""assets_2015_usd_bn"": 1731.21, ""assets_2025_usd_bn"": 1731.21, ""pct_change"": 0.0}, {""company"": ""C"", ""assets_2015_usd_bn"": 2657.202, ""assets_2025_usd_bn"": 2657.202, ""pct_change"": 0.0}, {""company"": ""GS"", ""assets_2015_usd_bn"": 861.395, ""assets_2025_usd_bn"": 861.395, ""pct_change"": 0.0}, {""company"": ""GS"", ""assets_2015_usd_bn"": 1809.32, ""assets_2025_usd_bn"": 1809.32, ""pct_change"": 0.0}, {""company"": ""MS"", ""assets_2015_usd_bn"": 787.465, ""assets_2025_usd_bn"": 787.465, ""pct_change"": 0.0}, {""company"": ""MS"", ""assets_2015_usd_bn"": 1420.27, ""assets_2025_usd_bn"": 1420.27, ""pct_change"": 0.0}, {""company"": ""TFC"", ""assets_2015_usd_bn"": 209.947, ""assets_2025_usd_bn"": 209.947, ""pct_change"": 0.0}, {""company"": ""TFC"", ""assets_2015_usd_bn"": 547.538, ""assets_2025_usd_bn"": 547.538, ""pct_change"": 0.0}]","Truist Financial (TFC), +160.8% (percent), from USD 209.9 billion in FY2015 to USD 547.5 billion in FY2025.",TFC,no,,1,15.0,sql_run4,llama3.2:3b,0.0,2026-11-24,5cd4280
+38,What were Truist Financial's total deposits at the end of fiscal year 2025?,"SELECT
+  value / 1e9 AS deposits_2025_usd_bn
+FROM financials
+WHERE
+  company = 'TFC' AND metric = 'Deposits' AND fiscal_year = 2025
+LIMIT 100","[{""deposits_2025_usd_bn"": 400.398}]",USD 400.4 billion in total deposits (FY2025).,400.4,yes,,1,7.9,sql_run4,llama3.2:3b,0.0,2026-11-24,5cd4280
+39,What was Citigroup's total stockholders' equity at the end of fiscal year 2023?,"SELECT
+  company,
+  value / 1e9 AS stockholders_equity_usd_bn
+FROM financials
+WHERE
+  company = 'C' AND metric = 'StockholdersEquity' AND fiscal_year = 2023
+LIMIT 100","[{""company"": ""C"", ""stockholders_equity_usd_bn"": 205.453}]",USD 205.5 billion in stockholders' equity (FY2023).,205.5,yes,,1,8.3,sql_run4,llama3.2:3b,0.0,2026-11-24,5cd4280
+40,What was Bank of America's net income in fiscal year 2019?,"SELECT
+  value / 1e9 AS net_income_usd_bn
+FROM financials
+WHERE
+  company = 'BAC' AND metric = 'NetIncomeLoss' AND fiscal_year = 2019
+LIMIT 100","[{""net_income_usd_bn"": 27.43}]",USD 27.4 billion in net income (FY2019).,27.4,yes,,1,7.3,sql_run4,llama3.2:3b,0.0,2026-11-24,5cd4280

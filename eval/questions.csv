@@ -39,3 +39,8 @@ id,type,question,expected_answer,company,year,source_section
 38,figure,What were Truist Financial's total deposits at the end of fiscal year 2025?,USD 400.4 billion in total deposits (FY2025).,Truist Financial Corp,2025,financials
 39,figure,What was Citigroup's total stockholders' equity at the end of fiscal year 2023?,USD 205.5 billion in stockholders' equity (FY2023).,Citigroup,2023,financials
 40,figure,What was Bank of America's net income in fiscal year 2019?,USD 27.4 billion in net income (FY2019).,Bank of America,2019,financials
+41,control,What were Goldman Sachs' total liabilities at the end of fiscal year 2022?,"USD 1,324.6 billion in total liabilities (FY2022).",Goldman Sachs,2022,financials
+42,control,"Which had higher stockholders' equity in fiscal year 2021, Bank of America or Citigroup, and by how much?","Bank of America, with USD 270.1 billion vs Citigroup's USD 202.0 billion in FY2021; a difference of USD 68.1 billion (absolute).",Bank of America; Citigroup,2021,financials
+43,control,What percentage of JPMorgan Chase's total assets were liabilities in fiscal year 2020?,"91.7% (USD 3,105.4 billion in liabilities / USD 3,384.8 billion in total assets, FY2020).",JPMorgan Chase,2020,financials
+44,control,By how many US dollars did Morgan Stanley's total assets change from fiscal year 2018 to 2022?,"+USD 326.7 billion (absolute), from USD 853.5 billion in FY2018 to USD 1,180.2 billion in FY2022.",Morgan Stanley,2018-2022,financials
+45,control,Which bank had the smallest percentage growth in total deposits between fiscal years 2016 and 2024?,"Citigroup (C), +38.2% (percent), from USD 929.4 billion in FY2016 to USD 1,284.5 billion in FY2024.",All banks,2016-2024,financials

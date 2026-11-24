@@ -1,0 +1,6 @@
+id,cause,secondary_cause,explanation
+30,wrong column,,"Regression. Copies the new example's join ON bac.company = jpm.company AND bac.metric = jpm.metric into a comparison of two banks; with jpm.company = 'JPM' and bac.company = 'BAC' no row matches, so 0 rows. The reference joins on metric and fiscal_year."
+32,wrong column,,"Regression. Same wrong join key as 30 (company instead of fiscal_year) in a two-bank comparison: 0 rows."
+33,wrong column,,"Regression. Joins Deposits with itself (ON company and metric, only a.metric = 'Deposits' filtered) and does not fix the year of the second table: 18 rows of deposits/deposits ratios. Assets is never read."
+34,wrong column,,"No filter on metric = 'Revenues': the self-join over 2022 and 2025 returns one row per metric (6 rows vs 1). The first row is the right answer (23.05%), and the percent formula is now right."
+37,other,,"Groups by company with MAX(CASE ...) but computes (2025 - 2015) in USD bn * 100 instead of dividing by the 2015 value, so the ranking picks JPM, expected TFC."

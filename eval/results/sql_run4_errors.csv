@@ -1,0 +1,4 @@
+id,cause,secondary_cause,explanation
+34,other,,"Percent change written as 100 * (2025 / 1e9 - 2022 / 1e9) = 1091.8, the difference in USD bn times 100, not divided by the 2022 value (expected 23.1). The new rule's formula 100 * (new - old) / old was not followed. Attempt 1 failed and was retried."
+36,wrong column,other,"Filters company and year 2024 but not metric = 'NetIncomeLoss', so it returns one row per metric (6 rows vs 1). Also the percent change is (new / 1e9 - old / 1e9) * 100, not divided by the old value."
+37,other,,"Same as sql_run3: no self-join between 2015 and 2025, so both assets columns are the same row and pct_change = 0.0 for 12 rows, with no ORDER BY / LIMIT 1."

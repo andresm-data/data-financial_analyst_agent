@@ -21,3 +21,32 @@ By question group (faithfulness / answer relevancy):
 Notes:
 - Subset: 12 of the 25 text questions (6 risk, 6 results, two or three per bank) to cut the run from ~2 h to ~70 min on CPU. Run with `poetry run ragas_eval --ids 1,2,5,6,10,11,14,15,16,20,21,22`.
 - Question 2 has no answer relevancy score (NaN) in both runs: the answer was "I do not know" and the judge returned no valid score. Answer relevancy only uses the question and the answer, so the judge got the same input for both sizes. The answer relevancy averages are over the 11 scored questions. Counting it as 0 would give 0.589 (1000) and 0.651 (500).
+
+## SQL accuracy on the 15 figure questions
+
+The text-to-SQL tool (`sql/tool.py`: sqlglot validator, LIMIT 100, up to 2 retries) answers the 15 figure questions of `eval/questions.csv` (ids 26–40). Run with `poetry run python eval/run_sql_eval.py <run>` and scored with `poetry run python eval/compare_sql.py <run>`. Per-question results: `eval/results/<run>.csv` (raw output in `<run>_raw.jsonl`).
+
+Comparison rule (fixed before looking at the answers): the expected values are the key columns of the hand-written queries in `eval/figure_questions.sql` (the bank for "which bank" questions, the difference, percent or amount otherwise). An answer is correct if it has no error, the same number of rows as the reference, the same set of banks (ticker or name, case- and space-insensitive) when the expected answer names a bank, and every expected number within 1% relative difference. Correction made after sql_run2 and approved: the bank set was first also compared when no bank is expected, so a `company` column repeating the filtered bank (ids 38–40) counted as wrong; sql_run1 scores the same under both versions. Units and scale are not normalized: an amount in whole USD against an expected value in USD billions, or a fraction against a percent, is wrong.
+
+| Run | Model | Temperature | Date | Commit | Correct (of 15) | Accuracy |
+|---|---|---|---|---|---|---|
+| sql_run1 | llama3.2:3b | 0 | 2026-11-24 | `17da7be` | 7 | 46.7% |
+| sql_run2 | llama3.2:3b | 0 | 2026-11-24 | `35af844` | 9 | 60.0% |
+| sql_run3 | llama3.2:3b | 0 | 2026-11-24 | `184b6ec` | 10 | 66.7% |
+| sql_run4 | llama3.2:3b | 0 | 2026-11-24 | `5cd4280` | 12 | 80.0% |
+| sql_run5 | llama3.2:3b | 0 | 2026-11-24 | `450891f` | 10 | 66.7% |
+
+sql_run2 only changes the prompt (commit `35af844`): amounts in USD billions (`value / 1e9`, alias `_usd_bn`) and ratios in percent, also in the 3 worked examples. sql_run3 adds one change on top of sql_run2 (commit `184b6ec`): a 4th invented worked example (Truist vs Goldman Sachs liabilities, 2019) that returns the higher bank and the absolute difference. sql_run4 adds one more change (commit `5cd4280`): a prompt rule to compute ratios and percent changes on the raw `value` and divide by 1e9 only the returned amounts. sql_run4 reaches the goal of 12/15 (80%), but on the same 15 questions used to diagnose and tune 3 successive changes, so it is an optimistic estimate (see `docs/notes.md`, week 4). Error causes per run: `eval/results/<run>_errors.csv`.
+
+### Control questions
+
+5 control questions (ids 41–45, `type = control`, expected answers in `eval/control_questions.sql`) that were never used to diagnose errors or tune the prompt, scored with the same runner and comparator. Run with `poetry run python eval/run_sql_eval.py <run> --type control`.
+
+| Run | Prompt (commit of the change) | Model | Temperature | Date | Commit | Correct (of 5) | Accuracy |
+|---|---|---|---|---|---|---|---|
+| control_run4 | sql_run4 (`5cd4280`) | llama3.2:3b | 0 | 2026-11-24 | `ab18da6` | 2 | 40.0% |
+| control_run5 | sql_run5 (`450891f`) | llama3.2:3b | 0 | 2026-11-24 | `450891f` | 1 | 20.0% |
+
+The final prompt scores 80.0% on the 15 tuning questions but 40.0% on the 5 control questions: the 80% does not generalize. It passes the direct lookup (41) and the "which is higher" pattern of its newest example (42), and fails a ratio of two metrics (43), a change between two years (44) and a growth ranking between two years (45). `commit` is the code of the run; the prompt is the same as in sql_run4 (the commits in between only touch `eval/`).
+
+sql_run5 adds a 5th invented worked example (Bank of America liabilities 2012 to 2017, a self-join of one bank's two years on `company` and `metric`, commit `450891f`). It lowered both sets (15 questions 12 -> 10, control 2 -> 1): the model copied the join on `company` into comparisons of two banks and ratios of two metrics, which then return 0 rows. The control questions guided this change, so control_run5 is no longer a held-out measurement. sql_run4 remains the best prompt, and the change was reverted (commit `2652bd9`), so the current prompt is again the sql_run4 one (`src/` identical to `5cd4280`).

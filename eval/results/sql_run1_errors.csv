@@ -1,0 +1,9 @@
+id,cause,secondary_cause,explanation
+30,wrong units,,"Right metric (Assets), year (2025) and logic (JPM - BAC); returns asset_diff_usd = 1013162000000 in whole USD, expected 1013.2 USD bn (reference divides by 1e9)."
+31,other,wrong units,"Does not say which bank is higher: no bank cell, and revenue_diff_usd = GS - MS = -8249000000 (signed, not ABS). Reference returns higher = 'MS' and ABS difference. Also whole USD instead of USD bn."
+32,other,wrong units,"Does not say which bank is higher: no bank cell, and net_income_diff_usd = C - BAC = -17077000000 (signed, not ABS). Reference returns higher = 'BAC' and ABS difference. Also whole USD instead of USD bn. Scalar subqueries ran fine."
+33,wrong column,wrong units,"Filters only metric = 'Deposits' and divides deposits by themselves (pct_deposits = 1.0); the column named assets_usd holds deposits. Reference joins Deposits with Assets. Also a fraction, not a percent (no * 100)."
+35,wrong units,,"Right metric (Deposits), years (2021, 2025) and logic (2025 - 2021); returns change_usd = 97017000000 in whole USD, expected 97.0 USD bn."
+38,wrong units,,"Right company, metric and year; returns deposits_usd = 400398000000 in whole USD, expected 400.4 USD bn."
+39,wrong units,,"Right company, metric and year; returns stockholders_equity_usd = 205453000000 in whole USD, expected 205.5 USD bn."
+40,wrong units,,"Right company, metric and year; returns net_income_usd = 27430000000 in whole USD, expected 27.4 USD bn."

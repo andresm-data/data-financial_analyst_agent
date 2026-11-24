@@ -1,0 +1,4 @@
+id,cause,secondary_cause,explanation
+43,wrong column,,"Filters only metric = 'Liabilities' and self-joins it without a company filter on the second table, so it never reads Assets: the column named assets_usd_bn holds liabilities, and it returns 6 rows with liabilities_percent_usd_bn = 43831.6, expected 91.7 percent (100 * liabilities / assets). Same pattern as id 33 in sql_run1/2."
+44,wrong year,wrong units,"Joins fiscal_year with fiscal_year + 1 (not 2018 with 2022) and does not filter the second table's company, so it pairs MS 2018/2022 with other banks' next year: 12 rows. Also change_usd_bn = ms2.value - ms.value in whole USD (no / 1e9)."
+45,other,,"No self-join between 2016 and 2024: both deposits columns are the same row, so pct_change = 0.0 and ORDER BY picks JPM, expected C. Same pattern as id 37 (sql_run3/4)."

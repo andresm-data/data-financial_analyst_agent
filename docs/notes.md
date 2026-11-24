@@ -116,6 +116,14 @@
 3. Right: 41 (direct lookup) and 42 ("which is higher", the pattern of the newest example). Wrong (`eval/results/control_run4_errors.csv`): 43 wrong column (never reads Assets, like 33), 44 wrong year (joins each year with the next one instead of 2018 with 2022, and whole USD), 45 other (no self-join between the two years, like 37).
 4. Conclusion: the 80% does not generalize. The prompt learned the patterns that have a worked example (lookup, ranking, "which is higher") but not the ones without one: a ratio of two metrics, a change between two years and a growth ranking. The 15 questions overstate the real accuracy, as the caveat warned.
 
+## Fourth iteration (sql_run5, control_run5)
+1. One change on top of sql_run4, approved (commit `450891f`): a 5th invented worked example, "How much did Bank of America's total liabilities change from fiscal year 2012 to 2017, in US dollars and in percent?", a self-join of one bank's two years on `company` and `metric` that returns the change in USD bn and `100 * (new - old) / old`. Not in the 15 nor in the control questions; it returns 1 row. `check_sql_safety.py` 40/40, tests 220/220.
+2. sql_run5: **10/15 (66.7%)**, -2 against sql_run4. control_run5: **1/5 (20.0%)**, -1 against control_run4. Worse on both sets.
+3. Wrong -> right: 36 (now 25.92%). Right -> wrong: 30, 32 and 33 on the 15, and 42 on the control set. 34 now has the right formula and the right first row, but no `metric` filter (6 rows).
+4. Why: the model copied the example's join `ON y1.company = y0.company AND y1.metric = y0.metric` into comparisons of two banks (30, 32, 42) and ratios of two metrics (33, 43), where the join must be on `fiscal_year` or `company` only, so they return 0 rows or the wrong rows. Errors (`eval/results/sql_run5_errors.csv`, `control_run5_errors.csv`): wrong column 4 + 2, other 1 + 2.
+5. The control questions guided this change (their failures 44 and 45 motivated it), so control_run5 is no longer a held-out measurement; a new control set would be needed to measure generalization from here on.
+6. Lesson: with llama3.2:3b, each worked example is copied into question types it was not meant for. Four prompt changes moved the score on the 15 questions between 9 and 12, while the control set stayed at 1–2 of 5. sql_run4 is the best prompt measured.
+
 ## Comparison rule fix
 After sql_run2, ids 38–40 returned the right value in USD bn but were marked wrong because the bank-set check also ran when no bank is expected, and the model repeated the filtered `company` column. With approval, the bank set is now compared only when the expected answer names a bank (commit `6cd6578`). sql_run1 scores 7/15 under both versions (its CSV is byte-identical); sql_run2 goes from 6/15 to 9/15.
 
@@ -131,5 +139,6 @@ After sql_run2, ids 38–40 returned the right value in USD bn but were marked w
    - Which bank had the smallest percentage growth in total deposits between fiscal years 2016 and 2024?
 
 ## Pending
-1. Two-year comparisons and ratios of two metrics fail on both sets (34, 36, 37; 43, 44, 45). A candidate next change is an invented worked example that self-joins one bank's two years (or two metrics) on `company` and `metric`, judged on both the 15 and the 5 control questions. Once the control questions influence a change they stop being held out, so a new held-out set would be needed after that.
+1. Decide whether to revert `450891f` (the 5th example) with a new revert commit, so the final prompt is the one of sql_run4 again.
+2. More examples are not converging with a 3B model. Options: build the SQL from templates per question type (lookup, ranking, two-bank comparison, two-year change, ratio of two metrics) with the model only extracting bank, metric and years; or try a larger local model. Either change needs a new held-out set to be measured fairly.
 3. The tool returns rows as dicts, so two columns with the same alias overwrite each other (seen in 31 of sql_run2).

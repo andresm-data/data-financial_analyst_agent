@@ -139,6 +139,6 @@ After sql_run2, ids 38–40 returned the right value in USD bn but were marked w
    - Which bank had the smallest percentage growth in total deposits between fiscal years 2016 and 2024?
 
 ## Pending
-1. Decide whether to revert `450891f` (the 5th example) with a new revert commit, so the final prompt is the one of sql_run4 again.
+1. Done: `450891f` (the 5th example) was reverted with a new commit, so the final prompt is the sql_run4 one again (`src/` identical to `5cd4280`). Its expected scores are 12/15 and 2/5; a repeat run would also check stability.
 2. More examples are not converging with a 3B model. Options: build the SQL from templates per question type (lookup, ranking, two-bank comparison, two-year change, ratio of two metrics) with the model only extracting bank, metric and years; or try a larger local model. Either change needs a new held-out set to be measured fairly.
 3. The tool returns rows as dicts, so two columns with the same alias overwrite each other (seen in 31 of sql_run2).

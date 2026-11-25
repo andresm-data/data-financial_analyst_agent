@@ -2078,20 +2078,20 @@ langchain-core = ">=1.4.7,<2.0.0"
 
 [[package]]
 name = "langgraph"
-version = "1.2.22"
+version = "1.2.24"
 description = "Building stateful, multi-actor applications with LLMs"
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "langgraph-1.2.22-py3-none-any.whl", hash = "sha256:0f8ebec55a58667e40474a0e55bdb4f06a8c7a1d98cde2b7c8d996a2ee78fe3f"},
-    {file = "langgraph-1.2.22.tar.gz", hash = "sha256:32700dc34b5cf9ebb397258c2e56392f017d4dbc51c9591339225c3c1b7b5126"},
+    {file = "langgraph-1.2.24-py3-none-any.whl", hash = "sha256:312f9a75c1aa0dde5571da32c5c24b891e726fa9781b835b956ec6d9746fa943"},
+    {file = "langgraph-1.2.24.tar.gz", hash = "sha256:86b0dd611b7201cb393da2de0e064029c1bef520f11a5e6ee04be53c2a815bc7"},
 ]
 
 [package.dependencies]
 langchain-core = ">=1.4.7,<2"
 langgraph-checkpoint = ">=4.3.0,<5.0.0"
-langgraph-prebuilt = ">=1.1.0,<1.2.0"
+langgraph-prebuilt = ">=1.1.3,<1.2.0"
 langgraph-sdk = ">=0.4.6,<0.5.0"
 pydantic = ">=2.7.4"
 xxhash = ">=3.5.0"
@@ -2114,14 +2114,14 @@ ormsgpack = ">=1.12.0"
 
 [[package]]
 name = "langgraph-prebuilt"
-version = "1.1.2"
+version = "1.1.3"
 description = "Library with high-level APIs for creating and executing LangGraph agents and tools."
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "langgraph_prebuilt-1.1.2-py3-none-any.whl", hash = "sha256:2f5f4d8bd84c1bc8f6bbd309145e2ffa19ffc712301cff7b0cca909cd7d1b069"},
-    {file = "langgraph_prebuilt-1.1.2.tar.gz", hash = "sha256:8ad6353b16ea76b04b1e35fdc9ed4ead469346f80730ca346e08f26549e7b56a"},
+    {file = "langgraph_prebuilt-1.1.3-py3-none-any.whl", hash = "sha256:7b55eb1c2004348b73b9af9e2f81e5f3eda47dcf13d885ccb4195538426c55ce"},
+    {file = "langgraph_prebuilt-1.1.3.tar.gz", hash = "sha256:7ee72332e925000e3d24d2d491dd0ebb9d3a44dbffe650185943b730a832cf6d"},
 ]
 
 [package.dependencies]
@@ -6731,4 +6731,4 @@ cffi = ["cffi (>=1.17,<2.0) ; platform_python_implementation != \"PyPy\" and pyt
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.14,<4.0.0"
-content-hash = "72f715f7072fab9d92ff2cf9b99e105391f327e2b33de04829b96eacb7fc5bdf"
+content-hash = "ad589b77447fa5cc1104b02e6e710bbb85fd4fdae139cc9f98910480014b518f"

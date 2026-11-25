@@ -27,6 +27,10 @@ flowchart TD
     refuse --> finish
 ```
 
+Rendered image (for viewers without Mermaid support): [agent_graph.png](agent_graph.png).
+Regenerate it after changing the diagram with
+`mmdc -i docs/agent_graph.md -o docs/agent_graph.png` (the output file gets a `-1` suffix; rename it).
+
 Routes: `text`, `numbers`, `both`, `out_of_scope`. The classifier must return these
 exact strings. `retrieve_text` has a conditional edge too: it goes to `query_sql`
 only when `route == "both"`, otherwise to `answer`.

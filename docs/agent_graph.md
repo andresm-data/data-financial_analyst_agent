@@ -52,7 +52,7 @@ only when `route == "both"`, otherwise to `answer`.
 
 | Node | Code | Status |
 |---|---|---|
-| `classify` | — | Pending, built on 26 Nov |
+| `classify` | `src/financial_analyst_agent/agent/classifier.py`: `classify(state)` returns `route` and `route_reason`; `RouteDecision` and `ROUTES` in `src/financial_analyst_agent/agent/schemas.py` | Done (26 Nov, structured output with `json_schema`) |
 | `retrieve_text` | `src/financial_analyst_agent/rag/chain.py`: `get_chain(grounded=True)` returns `answer`, `quote`, `sources`; `citations()` turns sources into labels | Exists (RAG chain with citations) |
 | `query_sql` | `src/financial_analyst_agent/sql/tool.py`: `answer_with_sql(question)` (also wrapped as the `text_to_sql` tool) returns `sql`, `columns`, `rows`, `error`, `attempts` | Exists (text-to-SQL tool) |
 | `answer` | — | Pending, built on 27 Nov |

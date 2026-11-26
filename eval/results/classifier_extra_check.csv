@@ -1,0 +1,7 @@
+id,case,question,expected_route,real_route,reason,correct,error
+x1,both,"How large were Goldman Sachs' total liabilities in 2023, and what does the report say drove the change?",both,both,It needs a figure from the table and the explanation from the report.,True,
+x2,both,"Which bank grew its deposits the most from 2019 to 2021, and how does its 10-K explain that growth?",both,both,It asks for a ranking of a metric from the table and the explanation from the report.,True,
+x3,out_of_scope,Is Truist a better investment than Bank of America for my retirement savings?,out_of_scope,out_of_scope,It asks for a comparison of investment options and investment advice.,True,
+x4,out_of_scope,What will Morgan Stanley's share price be at the end of 2027?,out_of_scope,out_of_scope,It asks for a prediction of future price and investment advice.,True,
+x5,edge: metric not in table,What was JPMorgan Chase's CET1 capital ratio in 2024?,text,out_of_scope,"It asks for a specific financial metric (CET1 capital ratio) that is not in the list of metrics in the table of figures, and it also asks for a specific year (2024), which is not in the list of banks or years that can be asked about.",False,
+x6,edge: figures asked narratively,How did Citigroup's total deposits change between 2021 and 2023?,numbers,numbers,It asks for a comparison of a metric from the table of figures.,True,

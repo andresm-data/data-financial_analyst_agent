@@ -1,0 +1,30 @@
+{
+  "run": "run1",
+  "date_utc": "2026-11-26T14:16:53+00:00",
+  "model": "llama3.2:3b",
+  "temperature": 0.0,
+  "structured_output_method": "json_schema",
+  "code_commit": "641a87f",
+  "uncommitted_files": [
+    "?? eval/results/classifier_extra_check.csv",
+    "?? eval/results/classifier_run1.csv",
+    "?? eval/run_classifier_eval.py"
+  ],
+  "selection_rule": "expected_route from type (text->text, figure->numbers); control rows excluded; rng=random.Random(42); rng.sample(text ids sorted, 5) then rng.sample(figure ids sorted, 5)",
+  "selected_ids": [
+    21,
+    4,
+    1,
+    24,
+    9,
+    29,
+    40,
+    28,
+    37,
+    27
+  ],
+  "correct": 10,
+  "total": 10,
+  "extra_correct": 5,
+  "extra_total": 6
+}

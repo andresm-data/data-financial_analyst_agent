@@ -1,0 +1,11 @@
+id,question,expected_route,real_route,reason,correct,error
+21,"What drove the change in Morgan Stanley's Wealth Management net interest revenues in 2025, according to its 2025 10-K?",text,text,"It asks for the reasons for a change in the report, which is answered from the narrative.",True,
+4,"How might JPMorgan Chase have to modify its business in response to changes in law or supervisory expectations, according to its 2025 10-K?",text,text,It asks for a description of strategy or reasons from the narrative of the report.,True,
+1,"How could a default by another member of a central counterparty (CCP) cause losses for JPMorgan Chase, according to its 2025 10-K?",text,text,It asks for an explanation of a risk described in the narrative of the report.,True,
+24,"Why did the Federal Reserve reduce Morgan Stanley's stress capital buffer (SCB) in 2025, and to what level, according to its 2025 10-K?",text,text,"It asks for the reasons and explanation of a specific action taken by the Federal Reserve, described in the narrative of the report.",True,
+9,"Which regulatory capital buffers must Citigroup hold that affect its ability to return capital to shareholders, according to its 2025 10-K?",text,text,"It asks about specific buffers that affect the bank's ability to return capital to shareholders, which requires an explanation from the report.",True,
+29,Which bank had the lowest stockholders' equity in fiscal year 2025?,numbers,numbers,It asks for a ranking of a metric from the table of figures.,True,
+40,What was Bank of America's net income in fiscal year 2019?,numbers,numbers,It asks for the value of one metric for one bank and year.,True,
+28,Which bank had the largest total deposits in fiscal year 2020?,numbers,numbers,It asks for a ranking of a metric from the table of figures.,True,
+37,Which bank had the largest percentage growth in total assets between fiscal years 2015 and 2025?,numbers,numbers,"It asks for a ranking of a metric from the table of figures, specifically a percentage of growth.",True,
+27,Which bank had the lowest net income in fiscal year 2025?,numbers,numbers,It asks for a ranking of a metric from the table of figures.,True,

@@ -142,3 +142,24 @@ After sql_run2, ids 38–40 returned the right value in USD bn but were marked w
 1. Done: `450891f` (the 5th example) was reverted with a new commit, so the final prompt is the sql_run4 one again (`src/` identical to `5cd4280`). Its expected scores are 12/15 and 2/5; a repeat run would also check stability.
 2. More examples are not converging with a 3B model. Options: build the SQL from templates per question type (lookup, ranking, two-bank comparison, two-year change, ratio of two metrics) with the model only extracting bank, metric and years; or try a larger local model. Either change needs a new held-out set to be measured fairly.
 3. The tool returns rows as dicts, so two columns with the same alias overwrite each other (seen in 31 of sql_run2).
+
+# Week 5: agent classifier
+
+## Route model and classifier node (2026-11-26)
+1. `src/financial_analyst_agent/agent/schemas.py`: `RouteDecision` (Pydantic 2) with `route` as `Literal["text", "numbers", "both", "out_of_scope"]` and a one-sentence `reason`. `ROUTES` is the shared tuple for `add_conditional_edges`; a test checks it matches `docs/agent_graph.md`.
+2. `src/financial_analyst_agent/agent/classifier.py`: `classify(state)` reads `question` and returns `route` and `route_reason`. The prompt defines the 4 routes, reads the 6 metrics from `config/metrics.yaml` at run time, says not to judge whether the bank or year exists, and has 8 invented examples (2 per route).
+3. `llm.with_structured_output(RouteDecision)` with llama3.2:3b at temperature 0. `json_schema` (the default), `function_calling` and `json_mode` all parsed on a 3-question check; `json_schema` is kept.
+4. No example is in `eval/questions.csv`: compared against all 45 rows by normalized text and `difflib` (fail above 0.8); highest ratio 0.481. Two `text` examples were replaced (ratios 0.545 and 0.555) because they shared a topic with an eval question. Checked by `tests/test_classifier.py`.
+
+## Test on 10 questions (classifier_run1)
+1. Rule fixed before running: expected route from `type` (`text` -> `text`, `figure` -> `numbers`), `control` rows excluded, `random.Random(42)`, 5 sampled from the sorted `text` ids then 5 from the sorted `figure` ids. Selected: 21, 4, 1, 24, 9 and 29, 40, 28, 37, 27.
+2. Result: **10/10**, no parse errors (`eval/results/classifier_run1.csv`). Run metadata in `classifier_run1_meta.json`: llama3.2:3b, temperature 0, `json_schema`, 2026-11-26T14:16:53Z, code at `641a87f`.
+3. Separate check, not counted (`eval/results/classifier_extra_check.csv`, 6 invented questions, not in the eval set): **5/6**. Both `both`, both `out_of_scope` and the narrative-phrased figure question were right. "What was JPMorgan Chase's CET1 capital ratio in 2024?" (expected `text`) went to `out_of_scope`; the reason said 2024 is not an available year, which breaks the rule not to judge whether the data exist.
+
+## Caveats
+1. 10 questions only cover `text` and `numbers`; `both` and `out_of_scope` were checked on 6 invented questions only. One run at temperature 0 does not show run-to-run variance.
+2. `eval/questions.csv` labels figure questions as `figure`, not `numbers`; the mapping is a fixed rule in `eval/run_classifier_eval.py`.
+
+## Pending
+1. Proposed single change, not applied: a `text` example about a metric not in the table (for example a capital ratio) for a bank and year outside the data, to fix the CET1 case.
+2. Decide whether the 5 `control` questions count in the routing measurement on 1 Dec (40 or 45 questions).

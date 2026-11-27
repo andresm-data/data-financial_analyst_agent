@@ -163,3 +163,34 @@ After sql_run2, ids 38–40 returned the right value in USD bn but were marked w
 ## Pending
 1. Proposed single change, not applied: a `text` example about a metric not in the table (for example a capital ratio) for a bank and year outside the data, to fix the CET1 case.
 2. Decide whether the 5 `control` questions count in the routing measurement on 1 Dec (40 or 45 questions).
+
+## Agent graph with RAG, SQL and answer nodes (2026-11-27)
+1. Branch from `main` (the classifier branch was already merged in PR #14). Pre-check: `classify`, `ROUTES` and the planned state were in place; classifier_run1 10/10; `config/rag.yaml` uses the 1000-character index, as `docs/results.md` concludes; `check_sql_safety.py` 40/40; Ollama 0.17.7 with llama3.2:3b. The SQL tool already returned `sql`, `rows` and `error` separately, so no refactor was needed.
+2. State: `AgentState` in `agent/state.py` (`TypedDict`, `total=False`, the 8 fields of `docs/agent_graph.md`). Nodes: `retrieve_text` and `query_sql` in `agent/tools.py` reuse `rag.chain.default_retriever` (k=5) and `sql.tool.answer_with_sql` without changes; `answer` in `agent/answer.py`; `refuse` in `agent/graph.py` is **provisional until 30 Nov** (fixed message).
+3. Graph: `agent/graph.py`, `build_graph()` compiles once. `classify` has a conditional edge over `ROUTES` (checked to cover every route); `both` runs `retrieve_text` then `query_sql` in sequence. The edges out of `retrieve_text` use route names as keys, so the drawing matches the design except one label (see `docs/agent_graph.md`).
+4. `answer`: one model call with the RAG chain's strict `SYSTEM_RULES` (unchanged) plus 4 rules (cite sources, US dollars, answer both parts, the table figure wins over the text). With no context, or only an error, it answers with a fixed message and does not call the model. Added in code, because the 3B model does not follow the citation and precedence rules reliably: a `Sources:` block from the state, and in mixed answers the table rows as reference values.
+5. Context window: Ollama loads the model with `num_ctx` 4096 (server default; `get_llm` does not set it). Only the first 20 SQL rows reach the prompt (`MAX_PROMPT_ROWS`), and the answer says when rows were left out. Worst case measured (5 chunks + 20 of 100 rows): 2443 tokens, 60%. The node logs prompt tokens and warns above 80%.
+
+## End-to-end test (scripts/try_agent_graph.py)
+3 invented questions, not in `eval/questions.csv` (the script checks it), so the routing measurement on 1 Dec and the full test on 7 Dec are not inflated.
+
+| Type | Question | Route | Prompt tokens | Time |
+|---|---|---|---|---|
+| text | Climate change risks in Goldman Sachs' 2024 10-K | text | 1045 | 77 s |
+| numbers | Morgan Stanley total deposits, FY2022 | numbers | 368 | 124 s |
+| both | JPMorgan Chase net income FY2024 and what drove it | both | 1828 | 219 s |
+| not counted | Should I buy Citigroup stock before its next earnings report? | out_of_scope -> `refuse` | – | 29 s |
+
+1. Numbers: "USD 356.646 billion" matches the SQL run by hand in read-only mode (356,646,000,000 USD).
+2. Text: all 5 chunks are Goldman Sachs FY2024 (`GS_2025-02-27_gs-20241231.htm`).
+3. Mixed: both parts present. The model writes "$58.5 billion", copied from the 10-K text; the table value 58.471 is added in code as the reference. The percentages (18%, 12%, 23%, 4%) are in the retrieved excerpts. No figure without support.
+
+## Caveats
+1. The `answer` rules were adjusted on the same 3 test questions: the first run invented the citation "(MS, 2022, Financial Highlights)" and rounded a figure. Rule 9 (the table wins) did not change the mixed answer, and the text answer went from 4 sentences to 1 (still correct and supported).
+2. Inline citations from the model omit company and year; the code-generated `Sources:` block is the reliable one.
+3. The SQL of the mixed question has a misleading comment written by the model ("the 10-K filing is not available"); harmless, left for 30 Nov because the SQL tool was not to be changed today.
+4. Latency on CPU: 77–219 s per question; the mixed path makes 3 model calls plus the rerank.
+
+## Pending
+1. 30 Nov: final `refuse` node and error handling (an unparseable classifier output still raises), and strip comments from generated SQL.
+2. Watch answer length on 7 Dec: if text answers stay at one sentence, compare with and without rule 9 on a held-out set, not on these 3 questions.

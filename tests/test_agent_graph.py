@@ -45,3 +45,11 @@ def test_build_graph_compiles_once():
     assert g.build_graph() is g.build_graph()
     assert set(g.build_graph().get_graph().nodes) == {
         '__start__', 'classify', 'retrieve_text', 'query_sql', 'answer', 'refuse', '__end__'}
+
+
+def test_retrieve_text_edges_use_route_names():
+    assert g.route_after_retrieve({'route': 'both'}) == 'both'
+    assert g.route_after_retrieve({'route': 'text'}) == 'text'
+    mermaid = g.build_graph().get_graph().draw_mermaid()
+    assert 'retrieve_text -. &nbsp;both&nbsp; .-> query_sql' in mermaid
+    assert 'retrieve_text -. &nbsp;text&nbsp; .-> answer' in mermaid

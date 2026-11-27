@@ -46,9 +46,14 @@ def route_after_classify(state: AgentState) -> str:
     return state['route']
 
 
+# Salidas de `retrieve_text`, con el nombre de la ruta como clave para que el
+# dibujo del grafo muestre las mismas etiquetas que el diseño.
+RETRIEVE_TARGETS: dict[str, str] = {'both': 'query_sql', 'text': 'answer'}
+
+
 def route_after_retrieve(state: AgentState) -> str:
     """Ruta `both`: después del texto van las cifras; si no, a `answer`."""
-    return 'query_sql' if state.get('route') == 'both' else 'answer'
+    return 'both' if state.get('route') == 'both' else 'text'
 
 
 def check_routes(targets: dict[str, str] = ROUTE_TARGETS) -> None:
@@ -73,7 +78,7 @@ def make_graph(
 
     graph.add_edge(START, 'classify')
     graph.add_conditional_edges('classify', route_after_classify, ROUTE_TARGETS)
-    graph.add_conditional_edges('retrieve_text', route_after_retrieve, {'query_sql': 'query_sql', 'answer': 'answer'})
+    graph.add_conditional_edges('retrieve_text', route_after_retrieve, RETRIEVE_TARGETS)
     graph.add_edge('query_sql', 'answer')
     graph.add_edge('answer', END)
     graph.add_edge('refuse', END)

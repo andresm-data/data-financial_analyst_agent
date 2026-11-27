@@ -68,7 +68,9 @@ All model calls use the local Ollama model through
 
 ## Compiled graph
 
-Generated on 27 Nov with `build_graph().get_graph().draw_mermaid()`:
+Generated on 27 Nov with `build_graph().get_graph().draw_mermaid()`. The edges out of
+`retrieve_text` use the route names as keys (`RETRIEVE_TARGETS`), so they carry the
+same `text` and `both` labels as the design:
 
 ```mermaid
 ---
@@ -89,8 +91,8 @@ graph TD;
 	classify -. &nbsp;out_of_scope&nbsp; .-> refuse;
 	classify -. &nbsp;both&nbsp; .-> retrieve_text;
 	query_sql --> answer;
-	retrieve_text -.-> answer;
-	retrieve_text -.-> query_sql;
+	retrieve_text -. &nbsp;text&nbsp; .-> answer;
+	retrieve_text -. &nbsp;both&nbsp; .-> query_sql;
 	answer --> __end__;
 	refuse --> __end__;
 	classDef default fill:#f2f0ff,line-height:1.2
@@ -102,9 +104,8 @@ Differences from the design above (drawing only; the behaviour matches the desig
 and is tested in `tests/test_agent_graph.py`):
 
 - `classify → retrieve_text` shows only the `both` label. The `text` and `both`
-  routes go to the same node, and the drawing keeps one label per pair of nodes.
-- The two edges out of `retrieve_text` have no label, because their path keys are the
-  target names (`answer`, `query_sql`). In the design they are labelled `text` and `both`.
+  routes go to the same node, and the drawing keeps one label per pair of nodes. This
+  is a limit of LangGraph's drawing, not of the graph.
 - `START`/`END` are drawn as `__start__`/`__end__`.
 
 ## Design notes

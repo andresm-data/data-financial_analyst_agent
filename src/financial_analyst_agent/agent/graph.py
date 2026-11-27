@@ -1,9 +1,9 @@
 """Grafo LangGraph del agente (diseño: docs/agent_graph.md).
 
     START -> classify -> (ruta) -> retrieve_text / query_sql / refuse
-    text:         retrieve_text -> END
-    numbers:      query_sql -> END
-    both:         retrieve_text -> query_sql -> END   (en secuencia)
+    text:         retrieve_text -> answer -> END
+    numbers:      query_sql -> answer -> END
+    both:         retrieve_text -> query_sql -> answer -> END   (en secuencia)
     out_of_scope: refuse -> END
 
 `build_graph()` compila el grafo una sola vez. `make_graph()` deja cambiar los
@@ -14,6 +14,7 @@ from functools import cache
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
+from financial_analyst_agent.agent.answer import answer
 from financial_analyst_agent.agent.classifier import classify
 from financial_analyst_agent.agent.schemas import ROUTES
 from financial_analyst_agent.agent.state import AgentState
@@ -46,8 +47,8 @@ def route_after_classify(state: AgentState) -> str:
 
 
 def route_after_retrieve(state: AgentState) -> str:
-    """Ruta `both`: después del texto van las cifras; si no, se termina."""
-    return 'query_sql' if state.get('route') == 'both' else 'next'
+    """Ruta `both`: después del texto van las cifras; si no, a `answer`."""
+    return 'query_sql' if state.get('route') == 'both' else 'answer'
 
 
 def check_routes(targets: dict[str, str] = ROUTE_TARGETS) -> None:
@@ -59,6 +60,7 @@ def check_routes(targets: dict[str, str] = ROUTE_TARGETS) -> None:
 # =============================================================================
 def make_graph(
     classify_node=classify, retrieve_node=retrieve_text, sql_node=query_sql, refuse_node=refuse,
+    answer_node=answer,
 ) -> CompiledStateGraph:
     """Construye y compila el grafo con los nodos dados."""
     check_routes()
@@ -67,12 +69,13 @@ def make_graph(
     graph.add_node('retrieve_text', retrieve_node)
     graph.add_node('query_sql', sql_node)
     graph.add_node('refuse', refuse_node)
+    graph.add_node('answer', answer_node)
 
     graph.add_edge(START, 'classify')
     graph.add_conditional_edges('classify', route_after_classify, ROUTE_TARGETS)
-    # Temporal: hasta que exista `answer`, las herramientas terminan en END.
-    graph.add_conditional_edges('retrieve_text', route_after_retrieve, {'query_sql': 'query_sql', 'next': END})
-    graph.add_edge('query_sql', END)
+    graph.add_conditional_edges('retrieve_text', route_after_retrieve, {'query_sql': 'query_sql', 'answer': 'answer'})
+    graph.add_edge('query_sql', 'answer')
+    graph.add_edge('answer', END)
     graph.add_edge('refuse', END)
     return graph.compile()
 

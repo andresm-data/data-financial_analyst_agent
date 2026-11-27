@@ -20,6 +20,7 @@ class FakeLLM:
 def test_prompt_reuses_rag_rules_unchanged():
     assert a.ANSWER_RULES.startswith(SYSTEM_RULES)
     assert 'US dollars' in a.ANSWER_RULES and '(financials table)' in a.ANSWER_RULES
+    assert 'report the value from the SQL result' in a.ANSWER_RULES
 
 
 def test_no_context_does_not_call_model():
@@ -73,3 +74,17 @@ def test_rows_are_capped_in_prompt_and_answer_says_so():
 def test_no_truncation_note_for_few_rows():
     out = a.answer({'question': 'q', 'sql': 'SELECT x', 'rows': [{'x': 1}]}, llm=FakeLLM('ok'))['answer']
     assert 'Note:' not in out
+
+
+def test_table_figure_is_added_when_text_and_rows():
+    state = {'question': 'q', 'sources': [SOURCE], 'sql': 'SELECT x', 'rows': [{'net_income_usd_bn': 58.471}]}
+    out = a.answer(state, llm=FakeLLM('Net income was $58.5 billion.'))['answer']
+    assert '  - net_income_usd_bn = 58.471' in out
+    assert out.index('Figures from the financials table') < out.index('Sources:')
+    only_rows = a.answer({'question': 'q', 'sql': 'SELECT x', 'rows': [{'x': 1}]}, llm=FakeLLM('ok'))['answer']
+    assert 'Figures from the financials table' not in only_rows
+
+
+def test_table_figures_caps_rows():
+    text = a.table_figures([{'x': i} for i in range(8)])
+    assert '  - x = 4' in text and '  - x = 5' not in text and '... and 3 more rows' in text

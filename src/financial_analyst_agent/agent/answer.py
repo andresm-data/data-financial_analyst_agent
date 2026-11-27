@@ -2,7 +2,11 @@
 
 Hace una sola llamada al modelo con todo el contexto disponible. Las reglas
 son las del prompt estricto de la cadena RAG (`rag.prompt.SYSTEM_RULES`, sin
-cambiarlo) más tres reglas para citar las fuentes y las unidades.
+cambiarlo) más cuatro reglas: citar las fuentes, las unidades, responder las dos partes y,
+si la cifra está en la tabla y en el texto, usar la de la tabla (la que se
+compara en la evaluación). El modelo de 3B no siempre cumple esta última regla
+(copia la cifra redondeada del 10-K), así que cuando hay texto y filas a la vez
+el código añade las cifras de la tabla como valor de referencia.
 
 Sin contexto (ni fragmentos ni filas) no se llama al modelo: la respuesta es
 un mensaje fijo que dice qué falló o que no se sabe, sin inventar datos. Si una
@@ -43,7 +47,8 @@ MAX_PROMPT_ROWS = 20
 
 EXTRA_RULES = """6. After each fact taken from a 10-K excerpt, cite the header of that excerpt, for example (Goldman Sachs | FY2024 | Risk Factors).
 7. Figures from the SQL result are in US dollars; a column ending in _usd_bn is in billions of US dollars. Write them as "USD <value> billion" with the value copied exactly, without rounding, and cite them as (financials table), never as a 10-K section.
-8. If the question asks for a figure and an explanation, answer both parts, each only from its own context."""
+8. If the question asks for a figure and an explanation, answer both parts, each only from its own context.
+9. If the SQL result and a 10-K excerpt both give the asked figure, report the value from the SQL result."""
 
 ANSWER_RULES = f'{SYSTEM_RULES}\n{EXTRA_RULES}'
 
@@ -64,6 +69,19 @@ def format_rows(sql: str | None, rows: list[dict], max_rows: int = MAX_PROMPT_RO
     if len(rows) > max_rows:
         lines.append(f'(only the first {max_rows} of {len(rows)} rows are shown)')
     return '\n'.join(lines)
+
+
+# Filas que se citan como cifra de referencia cuando hay texto y tabla a la vez.
+MAX_FIGURE_ROWS = 5
+
+
+def table_figures(rows: list[dict], max_rows: int = MAX_FIGURE_ROWS) -> str:
+    """Las filas del SQL tal cual, como cifra de referencia (la tabla manda sobre el texto)."""
+    lines = [', '.join(f'{k} = {v}' for k, v in row.items()) for row in rows[:max_rows]]
+    if len(rows) > max_rows:
+        lines.append(f'... and {len(rows) - max_rows} more rows')
+    return ('Figures from the financials table (reference values; _usd_bn = billions of US dollars):\n'
+            + '\n'.join(f'  - {line}' for line in lines))
 
 
 def truncation_note(rows: list[dict] | None, max_rows: int = MAX_PROMPT_ROWS) -> str | None:
@@ -127,6 +145,8 @@ def answer(state: AgentState, llm: BaseChatModel | None = None) -> AgentState:
 
     text = clean_answer(response.content)
     if not is_no_answer(text):
+        if state.get('sources') and state.get('rows'):
+            text += f"\n\n{table_figures(state['rows'])}"
         text += f'\n\n{sources_block(state)}'
     if note := truncation_note(state.get('rows')):
         text += f'\n\n{note}'

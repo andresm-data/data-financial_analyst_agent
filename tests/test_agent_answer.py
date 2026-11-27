@@ -57,3 +57,19 @@ def test_sources_block_is_added_from_state():
     assert out.endswith('Sources:\n  - Citigroup | FY2024 | Risk Factors\n'
                         '  - financials table (SQL query above; amounts in US dollars)')
     assert 'Sources:' not in a.answer({'question': 'q', 'sources': [SOURCE]}, llm=FakeLLM(NO_ANSWER))['answer']
+
+
+def test_rows_are_capped_in_prompt_and_answer_says_so():
+    rows = [{'company': f'B{i}', 'value_usd_bn': i} for i in range(a.MAX_PROMPT_ROWS + 5)]
+    llm = FakeLLM('Some answer.')
+    out = a.answer({'question': 'q', 'sql': 'SELECT x', 'rows': rows}, llm=llm)['answer']
+    human = llm.calls[0][1].content
+    assert f'"company": "B{a.MAX_PROMPT_ROWS - 1}"' in human
+    assert f'"company": "B{a.MAX_PROMPT_ROWS}"' not in human
+    assert f'only the first {a.MAX_PROMPT_ROWS} of {len(rows)} rows' in human
+    assert out.endswith(f'first {a.MAX_PROMPT_ROWS} of {len(rows)} rows returned by the SQL query.')
+
+
+def test_no_truncation_note_for_few_rows():
+    out = a.answer({'question': 'q', 'sql': 'SELECT x', 'rows': [{'x': 1}]}, llm=FakeLLM('ok'))['answer']
+    assert 'Note:' not in out

@@ -15,7 +15,9 @@ fragmento recuperado y, si hubo filas, la tabla de cifras (en dólares).
 
 Cada llamada registra en el log `financial_analyst_agent.agent.answer` los
 tokens del prompt que contó Ollama y los compara con `NUM_CTX`: Ollama recorta
-el prompt sin avisar si no cabe.
+el prompt sin avisar si no cabe. Por eso al modelo solo llegan las primeras
+`MAX_PROMPT_ROWS` filas del SQL (la herramienta puede devolver hasta 100); el
+estado conserva todas y la respuesta dice cuántas se omitieron.
 """
 import json
 import logging
@@ -35,6 +37,9 @@ logger = logging.getLogger(__name__)
 # `get_llm` no fija `num_ctx`, así que se usa el valor por defecto del servidor.
 NUM_CTX = 4096
 NEAR_LIMIT = 0.8  # avisar si el prompt pasa del 80 % de la ventana
+# Filas del SQL que entran al prompt. ~30 tokens por fila: 20 filas + 5 chunks
+# de 1000 caracteres + reglas quedan por debajo del 80 % de NUM_CTX.
+MAX_PROMPT_ROWS = 20
 
 EXTRA_RULES = """6. After each fact taken from a 10-K excerpt, cite the header of that excerpt, for example (Goldman Sachs | FY2024 | Risk Factors).
 7. Figures from the SQL result are in US dollars; a column ending in _usd_bn is in billions of US dollars. Write them as "USD <value> billion" with the value copied exactly, without rounding, and cite them as (financials table), never as a 10-K section.
@@ -52,11 +57,20 @@ def format_sources(sources: list[dict]) -> str:
     return '\n\n'.join(f"[{n}] {s['label']}\n{s['text']}" for n, s in enumerate(sources, 1))
 
 
-def format_rows(sql: str | None, rows: list[dict]) -> str:
-    """El SQL ejecutado y una fila por línea, con los valores tal cual salen de DuckDB."""
+def format_rows(sql: str | None, rows: list[dict], max_rows: int = MAX_PROMPT_ROWS) -> str:
+    """El SQL ejecutado y una fila por línea (como mucho `max_rows`), con los valores de DuckDB."""
     lines = [f'SQL: {sql}', 'Rows:']
-    lines += [json.dumps(row, default=str) for row in rows]
+    lines += [json.dumps(row, default=str) for row in rows[:max_rows]]
+    if len(rows) > max_rows:
+        lines.append(f'(only the first {max_rows} of {len(rows)} rows are shown)')
     return '\n'.join(lines)
+
+
+def truncation_note(rows: list[dict] | None, max_rows: int = MAX_PROMPT_ROWS) -> str | None:
+    """Aviso fijo si el modelo no vio todas las filas."""
+    if rows and len(rows) > max_rows:
+        return f'Note: the answer only used the first {max_rows} of {len(rows)} rows returned by the SQL query.'
+    return None
 
 
 def build_messages(state: AgentState) -> list:
@@ -114,6 +128,8 @@ def answer(state: AgentState, llm: BaseChatModel | None = None) -> AgentState:
     text = clean_answer(response.content)
     if not is_no_answer(text):
         text += f'\n\n{sources_block(state)}'
+    if note := truncation_note(state.get('rows')):
+        text += f'\n\n{note}'
     if state.get('error'):
         text += f"\n\nNote: part of the data could not be retrieved: {state['error']}"
     return {'answer': text}

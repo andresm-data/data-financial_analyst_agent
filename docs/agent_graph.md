@@ -56,7 +56,7 @@ only when `route == "both"`, otherwise to `answer`.
 | `retrieve_text` | `src/financial_analyst_agent/rag/chain.py`: `get_chain(grounded=True)` returns `answer`, `quote`, `sources`; `citations()` turns sources into labels | Exists (RAG chain with citations) |
 | `query_sql` | `src/financial_analyst_agent/sql/tool.py`: `answer_with_sql(question)` (also wrapped as the `text_to_sql` tool) returns `sql`, `columns`, `rows`, `error`, `attempts` | Exists (text-to-SQL tool) |
 | `answer` | — | Pending, built on 27 Nov |
-| `refuse` | — | Pending, built on 30 Nov |
+| `refuse` | `src/financial_analyst_agent/agent/graph.py`: `refuse(state)` returns the fixed `REFUSE_MESSAGE` | **Provisional until 30 Nov** (fixed short message; the real node is built that day) |
 
 Both existing modules use the local Ollama model through
 `src/financial_analyst_agent/llm.py` (`get_llm`).
